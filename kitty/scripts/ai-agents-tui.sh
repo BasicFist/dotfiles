@@ -8,6 +8,13 @@ set -euo pipefail
 
 SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Validate required dependency
+if [[ ! -f "${SCRIPT_DIR}/lib/colors.sh" ]]; then
+    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/colors.sh" >&2
+    echo "Please ensure the AI Agents scripts are properly installed." >&2
+    exit 1
+fi
 source "${SCRIPT_DIR}/lib/colors.sh"
 
 # Detect available dialog tool
@@ -228,8 +235,8 @@ list_sessions() {
         return
     fi
 
-    # Build list of sessions
-    local sessions=""
+    # Build list of sessions (using safe array instead of eval)
+    local menu_items=()
     local count=1
 
     for dir in "$snapshot_dir"/*/; do
@@ -239,24 +246,24 @@ list_sessions() {
             local desc="No description"
 
             if [[ -f "$meta_file" ]]; then
-                desc=$(jq -r '.description // "No description"' "$meta_file")
+                desc=$(jq -r '.description // "No description"' "$meta_file" 2>/dev/null || echo "No description")
             fi
 
-            sessions+="$count \"$name\" \"$desc\" "
-            count=$((count + 1))
+            menu_items+=("$count" "$name" "$desc")
+            ((count++))
         fi
     done
 
-    if [[ -z "$sessions" ]]; then
+    if [[ ${#menu_items[@]} -eq 0 ]]; then
         show_message "No Saved Sessions" "No sessions found."
         return
     fi
 
-    eval $DIALOG --title \"Saved Sessions\" \
-                 --menu \"Select a session to view:\" \
-                 $HEIGHT $WIDTH $MENU_HEIGHT \
-                 $sessions \
-                 2> "$TEMP_FILE"
+    $DIALOG --title "Saved Sessions" \
+            --menu "Select a session to view:" \
+            $HEIGHT $WIDTH $MENU_HEIGHT \
+            "${menu_items[@]}" \
+            2> "$TEMP_FILE"
 
     if [[ $? -eq 0 ]]; then
         local choice=$(cat "$TEMP_FILE")
@@ -571,7 +578,8 @@ system_status() {
 
     # Check TPM
     if [[ -d "${HOME}/.tmux/plugins/tpm" ]]; then
-        local plugin_count=$(ls -1 "${HOME}/.tmux/plugins" 2>/dev/null | wc -l)
+        # Count plugins excluding TPM itself
+        local plugin_count=$(find "${HOME}/.tmux/plugins" -maxdepth 1 -type d ! -name 'plugins' ! -name 'tpm' 2>/dev/null | tail -n +2 | wc -l)
         status+="✅ TPM (Plugin Manager): INSTALLED\n"
         status+="   • Total plugins: $plugin_count/16 configured\n"
 
