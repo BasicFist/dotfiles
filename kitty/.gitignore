@@ -1,0 +1,40 @@
+# Kitty Configuration - Runtime Artifacts to Ignore
+
+# Lock files (created by glitch effects at runtime)
+*.lock
+/tmp/glitch-effects-*.lock
+
+# Process and socket files
+*.pid
+*.sock
+*.socket
+
+# Log files
+*.log
+/tmp/glitch-neon-*.log
+
+# Generated wallpapers (keep curated assets under wallpapers/)
+wallpapers/generated/
+wallpapers/tmp/
+
+# Backup files created by installer
+*.backup-*
+*.dotfiles-backup-*
+*.glitch-backup-*
+*.DEPRECATED
+
+# Session state
+session-*
+*.session
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Local overrides (optional per-host configs)
+kitty.local/
+
+# OS-specific
+.DS_Store
+Thumbs.db

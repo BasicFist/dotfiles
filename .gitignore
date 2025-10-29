@@ -1,0 +1,165 @@
+# ═══════════════════════════════════════════════════════════
+# Dotfiles Repository - .gitignore
+# ═══════════════════════════════════════════════════════════
+# Last Updated: 2025-10-29
+
+# ───────────────────────────────────────────────────────────
+# Backup Files
+# ───────────────────────────────────────────────────────────
+*.backup
+*.backup.*
+*.bak
+*.old
+*~
+
+# ───────────────────────────────────────────────────────────
+# Temporary Files
+# ───────────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.swp
+*.swo
+*.swn
+.*.sw[op]
+
+# ───────────────────────────────────────────────────────────
+# OS-Specific Files
+# ───────────────────────────────────────────────────────────
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+.directory
+.Trash-*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ───────────────────────────────────────────────────────────
+# Editor Files
+# ───────────────────────────────────────────────────────────
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+.netrwhist
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains
+.idea/
+*.iml
+
+# ───────────────────────────────────────────────────────────
+# Local Overrides (User-Specific)
+# ───────────────────────────────────────────────────────────
+*.local
+*.private
+local.conf
+private.conf
+
+# ───────────────────────────────────────────────────────────
+# Logs and Debug
+# ───────────────────────────────────────────────────────────
+*.log
+logs/
+debug.log
+error.log
+
+# Tmux logs (these are in ~/tmux-logs/ anyway)
+tmux-*.log
+
+# ───────────────────────────────────────────────────────────
+# Sensitive Data (Even though we use SOPS)
+# ───────────────────────────────────────────────────────────
+# Never commit plaintext secrets
+.env
+.env.*
+!.env.example
+
+# API keys, tokens, credentials
+*secret*
+*credential*
+*token*
+*.key
+*.pem
+*.pfx
+
+# But allow encrypted secrets (SOPS)
+!*.enc.*
+
+# ───────────────────────────────────────────────────────────
+# Zsh Configuration
+# ───────────────────────────────────────────────────────────
+# Compiled zsh bytecode
+*.zwc
+*.zwc.old
+
+# Plugin directories (manage separately or via submodules)
+zsh-autosuggestions/
+zsh-syntax-highlighting/
+
+# Completion cache
+.zcompdump
+.zsh/cache/
+
+# History files
+.zsh_history
+
+# ───────────────────────────────────────────────────────────
+# Testing and Development
+# ───────────────────────────────────────────────────────────
+test/
+testing/
+*.test
+*.spec
+
+# ───────────────────────────────────────────────────────────
+# AI Agents Session Data
+# ───────────────────────────────────────────────────────────
+# Session snapshots (users manage these locally)
+.ai-sessions/
+.ai-knowledge-base/
+# But allow the scripts and templates
+!kitty/scripts/
+
+# ───────────────────────────────────────────────────────────
+# What SHOULD be committed:
+# ───────────────────────────────────────────────────────────
+# ✅ All config files (.conf, .sh, .md)
+# ✅ Documentation
+# ✅ Scripts (made executable)
+# ✅ Encrypted secrets (*.enc.*)
+# ✅ README, LICENSE, .gitignore
+# ✅ Installation helpers
+#
+# What should NOT be committed:
+# ❌ Backup files
+# ❌ Temporary files
+# ❌ Local overrides
+# ❌ Plaintext secrets
+# ❌ User session data
+# ❌ OS-specific files
+
+# Git internals
+.git-bare/
+
+# ───────────────────────────────────────────────────────────
+# Python
+# ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python

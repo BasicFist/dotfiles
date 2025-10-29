@@ -1,0 +1,237 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                  KITTY TERMINAL CONFIGURATION ARCHITECTURE                     ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+CONFIGURATION HIERARCHY
+════════════════════════════════════════════════════════════════════════════════
+
+                            ╔════════════════╗
+                            ║  kitty.conf    ║  (Master Entry Point)
+                            ║   866 bytes    ║  • Sets allow_remote_control: yes
+                            ╚════════════════╝
+                                    │
+                  ┌─────────────────┼─────────────────┐
+                  │                 │                 │
+          ╔═════════════════╗ ╔════════════════╗ ╔═══════════════════╗
+          ║ glitch.conf     ║ ║ aesthetics.conf║ ║ glitch-effects.sh ║
+          ║   5.4K          ║ ║    1.8K        ║ ║    6.3K (exec)    ║
+          ╠═════════════════╣ ╠════════════════╣ ╠═══════════════════╣
+          │ • Theme colors  │ │ • User tweaks  │ │ • pulse effect    │
+          │ • Fonts         │ │ • Overrides    │ │ • flicker effect  │
+          │ • Keyboard      │ │ • Safe to edit │ │ • scanline effect │
+          │   shortcuts     │ │ • Preserved    │ │ • chaos mode      │
+          │ • 30+ bindings  │ │   on updates   │ │ • ~5min timeout   │
+          │ • Security      │ │                │ │                   │
+          │ • Performance   │ │                │ │                   │
+          └─────────────────┘ └────────────────┘ └───────────────────┘
+                  │                 │                       │
+                  │                 │                       │
+                  └─────────────┬───┴───────────────────────┘
+                                │
+                        ╔═══════════════════╗
+                        ║  glitch-toggle    ║  (Interactive Control)
+                        ║   5.3K (exec)     ║  • start/stop/restart
+                        ╠═══════════════════╣  • status monitoring
+                        │ • CLI interface   │  • colored output
+                        │ • Process mgmt    │  • graceful shutdown
+                        │ • Lock files      │
+                        └───────────────────┘
+
+
+ALTERNATIVE THEME
+════════════════════════════════════════════════════════════════════════════════
+
+                        ╔══════════════════════════════╗
+                        ║ theme-matrix-ops.conf        ║  (Alternative, Disabled)
+                        ║ Located: kitty.d/            ║  • Matrix green theme
+                        ║ 35 lines                     ║  • Black background
+                        ╠══════════════════════════════╣  • Can be enabled by
+                        │ • Matrix-inspired colors     │    modifying includes
+                        │ • Bright green (#00FF80)     │
+                        │ • Pure black background      │
+                        │ • Different cursor trail     │
+                        └──────────────────────────────┘
+
+
+DATA FLOW: Visual Effects
+════════════════════════════════════════════════════════════════════════════════
+
+    Keyboard Shortcut          glitch-toggle CLI           Manual Script Call
+           │                          │                             │
+    Ctrl+Alt+G (pulse)    glitch-toggle start pulse    glitch-effects.sh pulse
+    Ctrl+Alt+F (flicker)  glitch-toggle restart ...    glitch-effects.sh chaos
+    Ctrl+Alt+P (stop)     glitch-toggle stop           glitch-toggle stop
+           │                          │                             │
+           └──────────────┬───────────┴───────────────────────────┬─┘
+                          │                                        │
+                          ▼                                        ▼
+              ╔════════════════════════════╗
+              ║  glitch-effects.sh         ║
+              ║  (Effects Engine)          ║
+              ╚════════════════════════════╝
+                          │
+                          ├─► acquire_lock()
+                          ├─► validate_kitty_connection()
+                          │
+              ┌───────────┼───────────┐
+              │           │           │
+              ▼           ▼           ▼
+        ╔─────────╗ ╔─────────╗ ╔──────────╗
+        │ pulse   │ │ flicker │ │ scanline │
+        └─────────┘ └─────────┘ └──────────┘
+              │           │           │
+              └───────────┼───────────┘
+                          │
+                          ▼
+              ╔════════════════════════════╗
+              ║ kitty @ remote control     ║
+              ║ set-background-opacity     ║
+              ║ set-colors                 ║
+              ╚════════════════════════════╝
+                          │
+                          ▼
+              ╔════════════════════════════╗
+              ║ unix:/tmp/kitty-{PID}      ║
+              ║ (Kitty IPC Socket)         ║
+              ╚════════════════════════════╝
+                          │
+                          ▼
+              ╔════════════════════════════╗
+              ║ VISUAL EFFECT              ║
+              ║ (Opacity/Color Change)     ║
+              ╚════════════════════════════╝
+
+
+FILE DEPENDENCY CHAIN
+════════════════════════════════════════════════════════════════════════════════
+
+  kitty starts
+      │
+      ▼
+  read kitty.conf ─┐
+      │            │
+      ├─► check: allow_remote_control yes  (CRITICAL for effects)
+      │
+      ├─► include glitch.conf
+      │       │
+      │       ├─► load: Colors, Fonts, Keybindings
+      │       ├─► register: Ctrl+Alt+G → glitch-effects.sh pulse
+      │       ├─► register: Ctrl+Alt+F → glitch-effects.sh flicker
+      │       └─► register: Ctrl+Alt+P → pkill glitch-effects.sh
+      │
+      └─► include aesthetics.conf
+              │
+              └─► apply: User overrides (if any uncommented)
+
+
+KEYBOARD SHORTCUT MAPPING STRUCTURE
+════════════════════════════════════════════════════════════════════════════════
+
+Window/Split Management
+    Ctrl+Shift+Enter   → launch --cwd=current
+    Ctrl+Shift+W       → close_window
+    Ctrl+Shift+±       → launch --location=hsplit/vsplit
+    Ctrl+Shift+↑/↓/←/→ → neighboring_window
+
+Tab Management
+    Ctrl+Shift+T       → new_tab
+    Ctrl+Shift+Q       → close_tab
+    Ctrl+Shift+[/]     → previous/next_tab
+    Ctrl+1-5           → goto_tab N
+
+Scrolling
+    Ctrl+Shift+K/J     → scroll_line_up/down
+    Ctrl+Shift+PgUp/Dn → scroll_page_up/down
+    Ctrl+Shift+Home/End → scroll_home/end
+
+Font & Display
+    Ctrl+Shift++/-     → change_font_size ±2pt
+    Ctrl+Shift+Backspace → reset font size
+    Ctrl+Alt+,/.       → opacity ±2%
+    Ctrl+Alt+0         → reset opacity to 90%
+
+Visual Effects
+    Ctrl+Alt+T         → enable cursor_trail 220px
+    Ctrl+Alt+Shift+T   → disable cursor_trail 0px
+    Ctrl+Alt+G         → launch glitch-effects.sh pulse
+    Ctrl+Alt+F         → launch glitch-effects.sh flicker
+    Ctrl+Alt+P         → pkill glitch-effects.sh
+
+Tools & Utilities
+    Ctrl+Shift+G       → GPU monitor (nvidia-smi)
+    Ctrl+Shift+S       → Sensors monitor
+    Ctrl+Shift+I       → Image viewer
+    Ctrl+Shift+Space   → Command palette
+    Ctrl+Shift+C/V     → copy/paste
+    Ctrl+Shift+F11     → toggle fullscreen
+
+
+THEME COLOR PALETTE
+════════════════════════════════════════════════════════════════════════════════
+
+Glitch Neon (Active)              Matrix Ops (Alternative)
+─────────────────────────────────────────────────────────
+Background:  #05010A (purple)     #000000 (black)
+Foreground:  #F0F0FF (lavender)   #cfeccb (soft green)
+Cursor:      #FF00CC (magenta)    #00ff80 (bright green)
+Accent1:     #00FFCC (cyan)       #00ffaa (cyan-green)
+Accent2:     #FF0088 (hot pink)   #66ff99 (light green)
+Accent3:     #00FF88 (green)      #e0ffe6 (very light green)
+
+
+BEHAVIOR CONTROLS
+════════════════════════════════════════════════════════════════════════════════
+
+Performance Tuning (glitch.conf)
+─────────────────────────────────
+    repaint_delay 3              → 3ms refresh rate
+    input_delay 0                → No keyboard lag
+    sync_to_monitor yes          → Tear-free rendering
+    scrollback_lines 10000       → 10K line history
+    resize_in_steps yes          → Smooth resizing
+    resize_draw_strategy static  → Static during resize
+
+Security Settings (glitch.conf)
+────────────────────────────────
+    allow_remote_control socket-only    → Local access only
+    listen_on unix:/tmp/kitty-{pid}     → Unix domain socket
+    clipboard_control read-clipboard-ask → Ask before reading
+    clipboard_max_size 32               → 32KB max
+    allow_cloning ask                   → Ask before cloning
+
+Visual Effects (glitch.conf)
+───────────────────────────
+    background_opacity 0.90         → 90% opacity
+    cursor_trail 220                → 220px trail
+    cursor_trail_decay 0.05 0.25    → Fade rate
+    cursor_trail_color #FF00CC      → Magenta trail
+    inactive_text_alpha 0.85        → Dimmed inactive tabs
+
+
+MODIFICATION REFERENCE
+════════════════════════════════════════════════════════════════════════════════
+
+To Change...                    Edit File              How
+─────────────────────────────────────────────────────────────────────────────
+Colors                          aesthetics.conf       Uncomment color lines
+Keybindings                     aesthetics.conf       Add to bottom section
+Theme                           kitty.conf            Swap includes
+Font                            aesthetics.conf       font_family/font_size
+Effects On/Off                  glitch.conf           Comment map lines 149-151
+Opacity default                 aesthetics.conf       background_opacity
+Cursor trail                    aesthetics.conf       cursor_trail_* settings
+Performance                     aesthetics.conf       repaint_delay, input_delay
+
+Reload Configuration            Press Ctrl+Shift+F5   or run: kitty @ load-config
+
+
+STATUS: FULLY CONFIGURED ✅
+════════════════════════════════════════════════════════════════════════════════
+✓ Theme: Glitch Neon active and optimized
+✓ Effects: All 4 modes working (pulse, flicker, scanline, chaos)
+✓ Shortcuts: 30+ custom keybindings mapped
+✓ Remote Control: Enabled for script interaction
+✓ Security: Hardened settings applied
+✓ Performance: Optimized for modern displays
+✓ Customization: Ready for personal tweaks via aesthetics.conf
+
