@@ -80,11 +80,11 @@ launch_in_terminal() {
     local cmd="$1"
 
     if [[ -n "${TMUX:-}" ]]; then
-        # Running in tmux - create new window
-        tmux new-window -n "AI-Mode" bash -c "$cmd"
+        # Running in tmux - create new window with persistent shell
+        tmux new-window -n "AI-Mode" bash -c "$cmd; exec bash"
     elif [[ -n "${KITTY_WINDOW_ID:-}" ]] && command -v kitty &>/dev/null; then
-        # Running in kitty - launch new tab
-        kitty @ launch --type=tab --title="AI Mode" bash -c "$cmd"
+        # Running in kitty - launch new tab with persistent shell
+        kitty @ launch --type=tab --title="AI Mode" --keep-focus bash -c "$cmd; exec bash"
     else
         # Fallback - run directly in background and notify
         bash -c "$cmd" &
