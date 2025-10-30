@@ -74,6 +74,24 @@ confirm() {
     $DIALOG --title "Confirm" --yesno "$message" 8 50
 }
 
+launch_in_terminal() {
+    # Launch command in proper terminal context
+    # Detects environment (tmux/kitty) and launches appropriately
+    local cmd="$1"
+
+    if [[ -n "${TMUX:-}" ]]; then
+        # Running in tmux - create new window
+        tmux new-window -n "AI-Mode" "$cmd"
+    elif [[ -n "${KITTY_WINDOW_ID:-}" ]] && command -v kitty &>/dev/null; then
+        # Running in kitty - launch new tab
+        kitty @ launch --type=tab --title="AI Mode" "$cmd"
+    else
+        # Fallback - run directly in background and notify
+        $cmd &
+        show_message "Mode Started" "Mode launched in background.\nCheck your terminal or tmux session."
+    fi
+}
+
 # ═══════════════════════════════════════════════════════════
 # Mode Management
 # ═══════════════════════════════════════════════════════════
@@ -82,7 +100,7 @@ start_pair_programming() {
     local driver=$(get_input "Pair Programming" "Driver agent:" "Agent1") || return
     local navigator=$(get_input "Pair Programming" "Navigator agent:" "Agent2") || return
 
-    "${SCRIPT_DIR}/ai-mode-start.sh" pair "$driver" "$navigator"
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh pair '$driver' '$navigator'"
     show_message "Success" "Pair programming mode started!\n\nDriver: $driver\nNavigator: $navigator"
 }
 
@@ -94,7 +112,7 @@ start_debate() {
         return
     fi
 
-    "${SCRIPT_DIR}/ai-mode-start.sh" debate "$topic"
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh debate '$topic'"
     show_message "Success" "Debate mode started!\n\nTopic: $topic"
 }
 
@@ -108,7 +126,7 @@ start_teaching() {
         return
     fi
 
-    "${SCRIPT_DIR}/ai-mode-start.sh" teach "$expert" "$learner" "$topic"
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh teach '$expert' '$learner' '$topic'"
     show_message "Success" "Teaching mode started!\n\nExpert: $expert\nLearner: $learner\nTopic: $topic"
 }
 
@@ -120,7 +138,7 @@ start_consensus() {
         return
     fi
 
-    "${SCRIPT_DIR}/ai-mode-start.sh" consensus "$decision"
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh consensus '$decision'"
     show_message "Success" "Consensus mode started!\n\nDecision: $decision"
 }
 
@@ -133,7 +151,7 @@ start_competition() {
         return
     fi
 
-    "${SCRIPT_DIR}/ai-mode-start.sh" compete "$challenge" "$time_limit"
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh compete '$challenge' '$time_limit'"
     show_message "Success" "Competition started!\n\nChallenge: $challenge\nTime: $time_limit min"
 }
 
