@@ -5,8 +5,8 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/constants.sh"
 source "${SCRIPT_DIR}/lib/colors.sh"
 
 usage() {
@@ -37,9 +37,8 @@ fi
 MODE="$1"
 shift
 
-# Create mode state directory
-MODE_STATE_DIR="/tmp/ai-mode-${SESSION}"
-mkdir -p "$MODE_STATE_DIR"
+# Create mode state directory (use constant from constants.sh)
+ensure_directories
 
 case "$MODE" in
     pair|pairing)

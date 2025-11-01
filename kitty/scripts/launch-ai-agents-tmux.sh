@@ -16,12 +16,14 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
-SHARED_FILE="/tmp/ai-agents-shared.txt"
-
 # Source shared utility functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/constants.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
+
+# Use constants
+SESSION="$AI_AGENTS_SESSION"
+SHARED_FILE="$AI_AGENTS_SHARED_FILE"
 
 if ! command -v tmux >/dev/null 2>&1; then
     echo "Error: tmux is required for launch-ai-agents-tmux.sh" >&2

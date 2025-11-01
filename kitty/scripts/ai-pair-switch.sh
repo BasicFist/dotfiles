@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/constants.sh"
 source "${SCRIPT_DIR}/lib/colors.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/pair-programming.json"
+MODE_STATE="$AI_AGENTS_STATE_PAIR"
 
 if [[ ! -f "$MODE_STATE" ]]; then
     error_color "❌ Pair programming mode not active!"
