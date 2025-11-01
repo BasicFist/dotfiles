@@ -6,8 +6,8 @@
 set -euo pipefail
 
 # Source JSON utilities for safe operations
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/json-utils.sh"
+_CONFIG_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${_CONFIG_LIB_DIR}/json-utils.sh"
 
 # Configuration file locations
 CONFIG_DIR="${AI_AGENTS_CONFIG_DIR:-$HOME/.config/ai-agents}"

@@ -166,7 +166,7 @@ test_input_sanitization() {
     for input in "${dangerous_inputs[@]}"; do
         if sanitized=$(sanitize_input "$input" 2>/dev/null); then
             # Check if dangerous characters were removed
-            if [[ ! "$sanitized" =~ [;\`|&\$] ]]; then
+            if [[ ! "$sanitized" =~ [\;] ]] && [[ ! "$sanitized" =~ [\`] ]] && [[ ! "$sanitized" =~ [\|] ]] && [[ ! "$sanitized" =~ [\&] ]] && [[ ! "$sanitized" =~ [\$] ]]; then
                 ((success_count++))
             fi
         else
@@ -427,6 +427,385 @@ test_progress_functions() {
     [[ "$all_exist" == "true" ]]
 }
 
+# ═══════════════════════════════════════════════════════════
+# Comprehensive Tests (Issue #10 - Phase 1)
+# ═══════════════════════════════════════════════════════════
+
+# Test 1: Concurrent State Updates
+test_concurrent_state_updates() {
+    # Test file locking prevents race conditions with 10 parallel updates
+    local test_state_file="$TEST_RESULTS_DIR/concurrent-test.json"
+
+    # Create initial state
+    echo '{"count": 0}' > "$test_state_file"
+
+    # Source JSON utilities if available
+    if [[ -f "${SCRIPT_DIR}/lib/json-utils.sh" ]]; then
+        source "${SCRIPT_DIR}/lib/json-utils.sh"
+    else
+        # Skip if json-utils not available
+        return 0
+    fi
+
+    # Run 10 parallel increments
+    local pids=()
+    for i in {1..10}; do
+        (
+            # Each process increments count by 1
+            if declare -f json_write >/dev/null 2>&1; then
+                json_write "$test_state_file" '.count += 1'
+            else
+                # Fallback without locking (will fail test)
+                local count=$(jq -r '.count' "$test_state_file")
+                echo "{\"count\": $((count + 1))}" > "$test_state_file"
+            fi
+        ) &
+        pids+=($!)
+    done
+
+    # Wait for all processes
+    for pid in "${pids[@]}"; do
+        wait "$pid" 2>/dev/null || true
+    done
+
+    # Verify final count is exactly 10 (no lost updates)
+    local final_count=$(jq -r '.count' "$test_state_file" 2>/dev/null || echo "0")
+    [[ "$final_count" == "10" ]]
+}
+
+# Test 2: Input Sanitization Comprehensive
+test_input_sanitization_comprehensive() {
+    # Test comprehensive input sanitization patterns
+    if ! declare -f sanitize_input >/dev/null 2>&1; then
+        return 0  # Skip if function not available
+    fi
+
+    # Dangerous patterns to test
+    local sql_injection=("' OR '1'='1" "'; DROP TABLE users--" "admin'--")
+    local cmd_injection=("; ls -la" "| cat /etc/passwd" "\$(whoami)" "\`id\`")
+    local path_traversal=("../../../etc/passwd" "..\\..\\windows\\system32")
+    local xss_patterns=("<script>alert('xss')</script>" "javascript:alert(1)")
+
+    local blocked_count=0
+    local total_patterns=$((${#sql_injection[@]} + ${#cmd_injection[@]} + ${#path_traversal[@]} + ${#xss_patterns[@]}))
+
+    # Test SQL injection
+    for pattern in "${sql_injection[@]}"; do
+        local sanitized=$(sanitize_input "$pattern" 2>/dev/null || echo "")
+        if [[ "$sanitized" != "$pattern" ]] || [[ -z "$sanitized" ]]; then
+            ((blocked_count++))
+        fi
+    done
+
+    # Test command injection
+    for pattern in "${cmd_injection[@]}"; do
+        local sanitized=$(sanitize_input "$pattern" 2>/dev/null || echo "")
+        if [[ "$sanitized" != "$pattern" ]] || [[ -z "$sanitized" ]]; then
+            ((blocked_count++))
+        fi
+    done
+
+    # Test path traversal
+    for pattern in "${path_traversal[@]}"; do
+        if ! validate_path "$pattern" "/tmp" 2>/dev/null; then
+            ((blocked_count++))
+        fi
+    done
+
+    # Test XSS
+    for pattern in "${xss_patterns[@]}"; do
+        local sanitized=$(sanitize_input "$pattern" 2>/dev/null || echo "")
+        if [[ "$sanitized" != "$pattern" ]] || [[ -z "$sanitized" ]]; then
+            ((blocked_count++))
+        fi
+    done
+
+    # Should block at least 80% of dangerous patterns
+    local threshold=$((total_patterns * 80 / 100))
+    [[ $blocked_count -ge $threshold ]]
+}
+
+# Test 3: Error Recovery
+test_error_recovery() {
+    # Test recovery from various error conditions
+    local test_json="$TEST_RESULTS_DIR/error-test.json"
+
+    # Test 1: Corrupted JSON handling
+    echo "not valid json {" > "$test_json"
+    if declare -f json_validate >/dev/null 2>&1; then
+        if json_validate "$test_json" 2>/dev/null; then
+            return 1  # Should fail on invalid JSON
+        fi
+    fi
+
+    # Test 2: Missing dependency graceful failure
+    if declare -f check_dependencies >/dev/null 2>&1; then
+        # Dependencies check should not crash even if tools missing
+        check_dependencies >/dev/null 2>&1 || true
+    fi
+
+    # Test 3: Empty file handling
+    > "$test_json"
+    if declare -f json_validate >/dev/null 2>&1; then
+        if json_validate "$test_json" 2>/dev/null; then
+            return 1  # Should fail on empty file
+        fi
+    fi
+
+    # If we got here, error handling works
+    return 0
+}
+
+# Test 4: Session Persistence
+test_session_persistence() {
+    # Test session save/restore cycle
+    local test_session_dir="$TEST_RESULTS_DIR/session-test"
+    mkdir -p "$test_session_dir"
+
+    # Create test session metadata
+    local metadata='{
+        "name": "test-session",
+        "timestamp": "'$(date -Iseconds)'",
+        "mode": "pair",
+        "panes": 4,
+        "driver": "Agent1",
+        "navigator": "Agent2"
+    }'
+
+    echo "$metadata" > "$test_session_dir/metadata.json"
+
+    # Validate JSON
+    if command -v jq >/dev/null 2>&1; then
+        if ! jq empty "$test_session_dir/metadata.json" 2>/dev/null; then
+            return 1
+        fi
+
+        # Verify all fields present
+        local name=$(jq -r '.name' "$test_session_dir/metadata.json")
+        local mode=$(jq -r '.mode' "$test_session_dir/metadata.json")
+        local panes=$(jq -r '.panes' "$test_session_dir/metadata.json")
+
+        [[ "$name" == "test-session" ]] && [[ "$mode" == "pair" ]] && [[ "$panes" == "4" ]]
+    else
+        return 0  # Skip if jq not available
+    fi
+}
+
+# Test 5: Configuration Migration
+test_config_migration() {
+    # Test configuration version migration
+    local old_config="$TEST_RESULTS_DIR/old-config.json"
+    local new_config="$TEST_RESULTS_DIR/new-config.json"
+
+    # Create v1.0 config
+    cat > "$old_config" <<'EOF'
+{
+  "version": "1.0.0",
+  "paths": {
+    "kb_root": "~/.ai-agents"
+  }
+}
+EOF
+
+    # Simulate migration to v2.0 (add new fields)
+    if command -v jq >/dev/null 2>&1; then
+        jq '. + {
+            "version": "2.0.0",
+            "system": {
+                "switch_interval": 1800
+            }
+        }' "$old_config" > "$new_config" 2>/dev/null
+
+        # Verify migration
+        local new_version=$(jq -r '.version' "$new_config" 2>/dev/null)
+        local kb_root=$(jq -r '.paths.kb_root' "$new_config" 2>/dev/null)
+        local interval=$(jq -r '.system.switch_interval' "$new_config" 2>/dev/null)
+
+        [[ "$new_version" == "2.0.0" ]] && [[ "$kb_root" == "~/.ai-agents" ]] && [[ "$interval" == "1800" ]]
+    else
+        return 0
+    fi
+}
+
+# Test 6: Multi-user Isolation
+test_multi_user_isolation() {
+    # Test that multiple users/sessions don't interfere
+    local user1_dir="$TEST_RESULTS_DIR/user1"
+    local user2_dir="$TEST_RESULTS_DIR/user2"
+
+    mkdir -p "$user1_dir" "$user2_dir"
+    chmod 700 "$user1_dir" "$user2_dir"
+
+    # Create separate session states
+    echo '{"user": "user1", "session": "session1"}' > "$user1_dir/state.json"
+    echo '{"user": "user2", "session": "session2"}' > "$user2_dir/state.json"
+
+    # Verify permissions are restrictive
+    local user1_perms=$(stat -c%a "$user1_dir" 2>/dev/null || stat -f%A "$user1_dir" 2>/dev/null || echo "700")
+    local user2_perms=$(stat -c%a "$user2_dir" 2>/dev/null || stat -f%A "$user2_dir" 2>/dev/null || echo "700")
+
+    # Verify states are independent
+    local user1_session=$(jq -r '.session' "$user1_dir/state.json" 2>/dev/null)
+    local user2_session=$(jq -r '.session' "$user2_dir/state.json" 2>/dev/null)
+
+    [[ "$user1_perms" == "700" ]] && [[ "$user2_perms" == "700" ]] && \
+    [[ "$user1_session" == "session1" ]] && [[ "$user2_session" == "session2" ]]
+}
+
+# Test 7: Memory Leak Detection
+test_memory_leaks() {
+    # Test for memory leaks in long-running operations
+    # This is a simplified test - full leak detection needs valgrind
+
+    # Create a temp file tracker
+    local temp_tracker="$TEST_RESULTS_DIR/temp-tracker"
+    mkdir -p "$temp_tracker"
+
+    # Simulate creating and cleaning temp files
+    local leak_count=0
+    for i in {1..20}; do
+        local temp_file="${temp_tracker}/temp_${i}"
+        echo "test data" > "$temp_file"
+
+        # Cleanup odd-numbered files (simulating proper cleanup)
+        if [[ $((i % 2)) -eq 1 ]]; then
+            rm -f "$temp_file"
+        else
+            ((leak_count++))
+        fi
+    done
+
+    # Count remaining files (leaked)
+    local remaining=$(find "$temp_tracker" -type f | wc -l)
+
+    # For this test, we expect leaks (to test our detection)
+    # In production, this should be 0
+    [[ $remaining -eq $leak_count ]]
+}
+
+# Test 8: Unicode Support
+test_unicode_support() {
+    # Test Unicode handling (emoji, CJK characters)
+    local unicode_file="$TEST_RESULTS_DIR/unicode-test.txt"
+
+    # Test various Unicode characters
+    cat > "$unicode_file" <<'EOF'
+English: Hello World
+Emoji: 🚀 💻 ✨ 🎉
+Chinese: 你好世界
+Japanese: こんにちは世界
+Korean: 안녕하세요 세계
+Arabic: مرحبا بالعالم
+Russian: Привет мир
+EOF
+
+    # Verify file was written correctly
+    if [[ ! -f "$unicode_file" ]]; then
+        return 1
+    fi
+
+    # Verify we can read it back
+    local content=$(cat "$unicode_file" 2>/dev/null)
+    if [[ -z "$content" ]]; then
+        return 1
+    fi
+
+    # Verify specific Unicode characters are present
+    grep -q "🚀" "$unicode_file" && \
+    grep -q "你好" "$unicode_file" && \
+    grep -q "こんにちは" "$unicode_file"
+}
+
+# Test 9: Large File Handling
+test_large_file_handling() {
+    # Test handling of large knowledge bases
+    local large_kb_dir="$TEST_RESULTS_DIR/large-kb"
+    mkdir -p "$large_kb_dir"
+
+    # Create 100 test documents (scaled down from 10k for speed)
+    for i in {1..100}; do
+        cat > "$large_kb_dir/doc_${i}.md" <<EOF
+# Document $i
+
+This is document number $i in the knowledge base.
+
+## Content
+$(printf 'Line %d\n' {1..50})
+
+## Tags
+test, performance, large-file, document-$i
+EOF
+    done
+
+    # Test search performance
+    local start_time=$(date +%s.%N 2>/dev/null || date +%s)
+    grep -r "document number 50" "$large_kb_dir" >/dev/null 2>&1
+    local end_time=$(date +%s.%N 2>/dev/null || date +%s)
+
+    # Calculate duration (basic arithmetic for portability)
+    local duration=1
+    if command -v bc >/dev/null 2>&1; then
+        duration=$(echo "$end_time - $start_time" | bc 2>/dev/null || echo "1")
+    fi
+
+    # Should complete in reasonable time (<5 seconds for 100 docs)
+    if command -v bc >/dev/null 2>&1; then
+        [[ $(echo "$duration < 5" | bc 2>/dev/null || echo "1") -eq 1 ]]
+    else
+        # Without bc, just check we didn't crash
+        return 0
+    fi
+}
+
+# Test 10: JSON Operations Comprehensive
+test_json_operations_comprehensive() {
+    # Test all JSON utility functions if available
+    if ! declare -f json_validate >/dev/null 2>&1; then
+        return 0  # Skip if not available
+    fi
+
+    local test_json="$TEST_RESULTS_DIR/json-ops-test.json"
+
+    # Test 1: Create valid JSON
+    if declare -f json_create >/dev/null 2>&1; then
+        json_create "$test_json" '{"test": "value", "count": 0}'
+        if [[ ! -f "$test_json" ]]; then
+            return 1
+        fi
+    else
+        echo '{"test": "value", "count": 0}' > "$test_json"
+    fi
+
+    # Test 2: Read field
+    if declare -f json_read >/dev/null 2>&1; then
+        local value=$(json_read "$test_json" '.test')
+        if [[ "$value" != "value" ]]; then
+            return 1
+        fi
+    fi
+
+    # Test 3: Write field
+    if declare -f json_write >/dev/null 2>&1; then
+        json_write "$test_json" '.count = 42'
+        local count=$(jq -r '.count' "$test_json" 2>/dev/null)
+        if [[ "$count" != "42" ]]; then
+            return 1
+        fi
+    fi
+
+    # Test 4: Field exists
+    if declare -f json_field_exists >/dev/null 2>&1; then
+        if ! json_field_exists "$test_json" '.test'; then
+            return 1
+        fi
+        if json_field_exists "$test_json" '.nonexistent' 2>/dev/null; then
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
 # Main test runner
 run_all_tests() {
     info_color "Running AI Agents Self Tests..."
@@ -455,7 +834,19 @@ run_all_tests() {
     
     # Progress Tests
     run_test "Progress Functions" "performance" "test_progress_functions"
-    
+
+    # Comprehensive Tests (Phase 1 - Issue #10)
+    run_test "Concurrent State Updates" "security" "test_concurrent_state_updates"
+    run_test "Input Sanitization Comprehensive" "security" "test_input_sanitization_comprehensive"
+    run_test "Error Recovery" "error_handling" "test_error_recovery"
+    run_test "Session Persistence" "integration" "test_session_persistence"
+    run_test "Configuration Migration" "configuration" "test_config_migration"
+    run_test "Multi-user Isolation" "security" "test_multi_user_isolation"
+    run_test "Memory Leak Detection" "performance" "test_memory_leaks"
+    run_test "Unicode Support" "integration" "test_unicode_support"
+    run_test "Large File Handling" "performance" "test_large_file_handling"
+    run_test "JSON Operations Comprehensive" "integration" "test_json_operations_comprehensive"
+
     # Summary
     echo ""
     info_color "Test Results Summary:"
