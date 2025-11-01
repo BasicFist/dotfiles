@@ -9,13 +9,14 @@ set -euo pipefail
 SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/colors.sh"
+source "${SCRIPT_DIR}/../lib/json-utils.sh"
 
 DRIVER="${1:-Agent1}"
 NAVIGATOR="${2:-Agent2}"
 MODE_STATE="/tmp/ai-mode-${SESSION}/pair-programming.json"
 
-# Initialize mode
-cat > "$MODE_STATE" <<EOF
+# Initialize mode with error handling
+STATE_JSON=$(cat <<EOF
 {
   "mode": "pair-programming",
   "started": "$(date -Iseconds)",
@@ -25,6 +26,12 @@ cat > "$MODE_STATE" <<EOF
   "switches": 0
 }
 EOF
+)
+
+if ! json_create "$MODE_STATE" "$STATE_JSON"; then
+    error_color "❌ Failed to create pair programming state"
+    exit 1
+fi
 
 # Clear shared communication
 truncate -s 0 /tmp/ai-agents-shared.txt
