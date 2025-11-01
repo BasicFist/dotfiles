@@ -9,6 +9,14 @@ SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
 
+# Check dependencies
+if [[ -f "${SCRIPT_DIR}/lib/dependencies.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/dependencies.sh"
+    if ! check_dependencies; then
+        exit 1
+    fi
+fi
+
 usage() {
     cat <<EOF
 Usage: ai-mode-start.sh <mode> [options]
