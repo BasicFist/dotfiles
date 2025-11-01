@@ -5,18 +5,9 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/constants.sh"
 source "${SCRIPT_DIR}/lib/colors.sh"
-source "${SCRIPT_DIR}/lib/temp-files.sh"
-
-# Check dependencies
-if [[ -f "${SCRIPT_DIR}/lib/dependencies.sh" ]]; then
-    source "${SCRIPT_DIR}/lib/dependencies.sh"
-    if ! check_dependencies; then
-        exit 1
-    fi
-fi
 
 usage() {
     cat <<EOF
@@ -46,11 +37,8 @@ fi
 MODE="$1"
 shift
 
-# Create mode state directory with secure permissions
-MODE_STATE_DIR=$(temp_app_dir "ai-mode-${SESSION}") || {
-    error_color "❌ Failed to create mode state directory"
-    exit 1
-}
+# Create mode state directory (use constant from constants.sh)
+ensure_directories
 
 case "$MODE" in
     pair|pairing)
