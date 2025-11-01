@@ -27,7 +27,7 @@ cat > "$MODE_STATE" <<EOF
 EOF
 
 # Clear shared communication
-> /tmp/ai-agents-shared.txt
+truncate -s 0 /tmp/ai-agents-shared.txt
 
 # Announce mode start
 "${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "🔀 Pair Programming Mode Started" --notify

@@ -22,6 +22,9 @@ DRIVER=$(jq -r '.driver' "$MODE_STATE")
 NAVIGATOR=$(jq -r '.navigator' "$MODE_STATE")
 SWITCHES=$(jq -r '.switches' "$MODE_STATE")
 
+# Log current state for visibility
+info_color "Current state: Driver=$DRIVER, Navigator=$NAVIGATOR, Switches=$SWITCHES"
+
 # Swap roles
 if [[ "$DRIVER" == "Agent1" ]]; then
     NEW_DRIVER="Agent2"
