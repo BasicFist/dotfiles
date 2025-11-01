@@ -6,16 +6,69 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Validate required dependency
-if [[ ! -f "${SCRIPT_DIR}/lib/colors.sh" ]]; then
-    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/colors.sh" >&2
+# Source configuration management first
+if [[ ! -f "${SCRIPT_DIR}/lib/config.sh" ]]; then
+    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/config.sh" >&2
     echo "Please ensure the AI Agents scripts are properly installed." >&2
     exit 1
 fi
+source "${SCRIPT_DIR}/lib/config.sh"
+
+# Source common utilities next to access validation functions
+if [[ ! -f "${SCRIPT_DIR}/lib/common.sh" ]]; then
+    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/common.sh" >&2
+    echo "Please ensure the AI Agents scripts are properly installed." >&2
+    exit 1
+fi
+source "${SCRIPT_DIR}/lib/common.sh"
+
+# Source progress feedback utilities
+if [[ ! -f "${SCRIPT_DIR}/lib/progress.sh" ]]; then
+    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/progress.sh" >&2
+    echo "Please ensure the AI Agents scripts are properly installed." >&2
+    exit 1
+fi
+source "${SCRIPT_DIR}/lib/progress.sh"
+
+# Source error handling utilities
+if [[ ! -f "${SCRIPT_DIR}/lib/errors.sh" ]]; then
+    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/errors.sh" >&2
+    echo "Please ensure the AI Agents scripts are properly installed." >&2
+    exit 1
+fi
+source "${SCRIPT_DIR}/lib/errors.sh"
+
+# Validate required dependency
+if [[ ! -f "${SCRIPT_DIR}/lib/colors.sh" ]]; then
+    log_error "ERROR" "ai-agents-tui.sh" "Required file not found: ${SCRIPT_DIR}/lib/colors.sh"
+    safe_exit 1 "Required file not found: ${SCRIPT_DIR}/lib/colors.sh"
+fi
+
+# Validate script directory path
+if ! validate_path "${SCRIPT_DIR}"; then
+    log_error "ERROR" "ai-agents-tui.sh" "Invalid script directory path: ${SCRIPT_DIR}"
+    safe_exit 1 "Invalid script directory path: ${SCRIPT_DIR}"
+fi
+
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/temp-files.sh"
+
+# Check dependencies before proceeding
+if [[ -f "${SCRIPT_DIR}/lib/dependencies.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/dependencies.sh"
+    if ! check_dependencies; then
+        echo "" >&2
+        echo "Please install missing dependencies and try again." >&2
+        exit 1
+    fi
+    # Show optional dependency info (non-fatal)
+    check_optional_dependencies
+fi
+
+# Use the session from configuration
+SESSION="$KITTY_AI_SESSION"
 
 # Detect available dialog tool
 if command -v dialog &> /dev/null; then
@@ -35,9 +88,8 @@ HEIGHT=20
 WIDTH=70
 MENU_HEIGHT=12
 
-# Temp file for dialog output
-TEMP_FILE=$(mktemp)
-trap "rm -f $TEMP_FILE" EXIT
+# Temp file for dialog output (auto-cleaned via temp-files.sh)
+TEMP_FILE=$(temp_file)
 
 # ═══════════════════════════════════════════════════════════
 # Helper Functions
@@ -79,12 +131,21 @@ launch_in_terminal() {
     # Detects environment (tmux/kitty) and launches appropriately
     local cmd="$1"
 
+    # Sanitize command to prevent injection
+    if [[ ! "$cmd" =~ ^[a-zA-Z0-9/_.\- ]+$ ]]; then
+        show_error "Invalid command format detected!"
+        return 1
+    fi
+
+    # Wrap command with visibility improvements
+    local wrapped_cmd="$cmd; echo ''; echo '════════════════════════════════════════'; echo '✅ Mode initialized - shell ready for commands'; echo '════════════════════════════════════════'; echo ''; exec bash"
+
     if [[ -n "${TMUX:-}" ]]; then
         # Running in tmux - create new window with persistent shell
-        tmux new-window -n "AI-Mode" bash -c "$cmd; exec bash"
+        tmux new-window -n "AI-Mode" bash -c "$wrapped_cmd"
     elif [[ -n "${KITTY_WINDOW_ID:-}" ]] && command -v kitty &>/dev/null; then
         # Running in kitty - launch new tab with persistent shell
-        kitty @ launch --type=tab --title="AI Mode" --keep-focus bash -c "$cmd; exec bash"
+        kitty @ launch --type=tab --title="AI Mode" --keep-focus bash -c "$wrapped_cmd"
     else
         # Fallback - run directly in background and notify
         bash -c "$cmd" &
@@ -515,6 +576,91 @@ launch_tmux_session() {
     fi
 }
 
+config_menu() {
+    while true; do
+        $DIALOG --title "⚙️ Configuration Management" \
+                --menu "Manage system configuration:" \
+                $HEIGHT $WIDTH $MENU_HEIGHT \
+                "1" "Show Current Configuration" \
+                "2" "Validate Configuration" \
+                "3" "Backup Configuration" \
+                "4" "Restore Configuration" \
+                "5" "Reset to Defaults" \
+                "6" "← Back to Main Menu" \
+                2> "$TEMP_FILE"
+
+        local choice=$?
+        if [[ $choice -ne 0 ]]; then
+            return
+        fi
+
+        case $(cat "$TEMP_FILE") in
+            1) 
+                # Show config in dialog
+                local config_output=$("${SCRIPT_DIR}/ai-config.sh" show 2>&1)
+                echo "$config_output" | $DIALOG --title "Current Configuration" --programbox $HEIGHT $WIDTH
+                ;;
+            2)
+                if "${SCRIPT_DIR}/ai-config.sh" validate 2>&1 | grep -q "Configuration is valid"; then
+                    show_message "✅ Validation" "Configuration is valid!"
+                else
+                    local error_output=$("${SCRIPT_DIR}/ai-config.sh" validate 2>&1)
+                    echo "$error_output" | $DIALOG --title "❌ Validation Errors" --programbox $HEIGHT $WIDTH
+                fi
+                ;;
+            3)
+                local timestamp=$(date +%Y%m%d-%H%M%S)
+                local backup_result=$("${SCRIPT_DIR}/ai-config.sh" backup "backup-$timestamp.conf" 2>&1)
+                show_message "Backup Created" "Configuration backed up successfully!\n\n$backup_result"
+                ;;
+            4)
+                # List available backups
+                local backup_dir="${AI_AGENTS_CONFIG_DIR:-$HOME/.ai-agents/config}"
+                local backups=()
+                local count=1
+                
+                for backup in "$backup_dir"/backup-*.conf; do
+                    if [[ -f "$backup" ]]; then
+                        local name=$(basename "$backup")
+                        backups+=("$count" "$name")
+                        ((count++))
+                    fi
+                done
+                
+                if [[ ${#backups[@]} -eq 0 ]]; then
+                    show_message "No Backups" "No configuration backups found."
+                else
+                    $DIALOG --title "Restore Configuration" \
+                            --menu "Select backup to restore:" \
+                            $HEIGHT $WIDTH $MENU_HEIGHT \
+                            "${backups[@]}" \
+                            "99" "← Back to Config Menu" \
+                            2> "$TEMP_FILE"
+                    
+                    if [[ $? -eq 0 ]]; then
+                        local selection=$(cat "$TEMP_FILE")
+                        if [[ "$selection" != "99" ]]; then
+                            local selected_backup="${backups[$((selection * 2 - 2))]}"
+                            if confirm "Restore configuration from $selected_backup?"; then
+                                local restore_result=$("${SCRIPT_DIR}/ai-config.sh" restore "$selected_backup" 2>&1)
+                                show_message "✅ Restore Complete" "Configuration restored!\n\n$restore_result"
+                            fi
+                        fi
+                    fi
+                fi
+                ;;
+            5)
+                if confirm "Reset all configuration to defaults?\n\nThis will lose all custom settings!"; then
+                    "${SCRIPT_DIR}/ai-config.sh" reset
+                    show_message "Reset Complete" "Configuration reset to defaults.\n\nSystem will use built-in defaults."
+                fi
+                ;;
+            6) return ;;
+            *) return ;;
+        esac
+    done
+}
+
 setup_tpm() {
     if [[ ! -f "${SCRIPT_DIR}/setup-tmux-tpm.sh" ]]; then
         show_error "TPM setup script not found!\n\nExpected: ${SCRIPT_DIR}/setup-tmux-tpm.sh"
@@ -529,56 +675,109 @@ setup_tpm() {
 }
 
 show_help() {
-    local help_text="AI Agents Management TUI
+    local help_text="AI AGENTS COLLABORATION SYSTEM - COMPREHENSIVE HELP
 
 COLLABORATION MODES:
-• Pair Programming - Driver/navigator roles
-• Debate - Structured discussion (4 rounds)
-• Teaching - Expert guides learner
-• Consensus - Both agents must agree
-• Competition - Best solution wins
+• Pair Programming - Driver/navigator roles with task switching
+• Debate - Structured discussion with position taking and rebuttals
+• Teaching - Expert guides learner through exercises and questions
+• Consensus - Both agents must agree on decisions with voting
+• Competition - Best solution wins with scoring and winner declaration
 
-fzf TOOLS (⭐ NEW!):
-• Session Browser - Browse/restore sessions with live preview
-• KB Search - Fuzzy search knowledge base with syntax highlighting
-• Pane Switcher - Navigate tmux panes (requires tmux session)
-• Mode Launcher - Select mode with comprehensive previews
+fzf TOOLS (⭐ ENHANCED!):
+• Session Browser - Browse/restore sessions with live preview and metadata
+• KB Search - Fuzzy search knowledge base with syntax highlighting and filtering
+• Pane Switcher - Navigate tmux panes (requires tmux session) with previews
+• Mode Launcher - Select collaboration mode with comprehensive previews
 
 SESSION MANAGEMENT:
-• View active mode status
-• Save current session
-• Browse saved sessions
-• View session history
+• View active mode status and metadata
+• Save current session with metadata and layout
+• Browse saved sessions with full content previews
+• View session history with statistics and details
+
+CONFIGURATION MANAGEMENT:
+• Centralized configuration system with validation
+• Runtime configuration updates and management
+• Backup and restore with versioned backups
+• Default configuration with customization options
+• Command-line interface: ai-config.sh
 
 KNOWLEDGE BASE:
-• Add documentation, snippets, decisions
-• Search knowledge base
-• Record lessons learned
+• Add documentation, code snippets, decisions, patterns
+• Search with type and tag filtering
+• Index-based fast search (optional, configurable)
+• Record lessons learned with context
+• Metadata-rich entries with timestamps
 
-TPM (Tmux Plugin Manager) (⭐ NEW!):
-• One-click installation
-• 7 essential plugins
+SECURITY FEATURES:
+• Input sanitization for all user inputs
+• Path validation to prevent directory traversal
+• Secure file permissions (644 for shared files)
+• Command injection prevention in bash -c executions
+• Validation of all configuration values
+• Secure temporary file handling
+
+PERFORMANCE OPTIMIZATIONS:
+• Indexed knowledge base search with caching
+• Efficient session listing with optimized I/O
+• Parallel processing where beneficial
+• Optimized memory usage for large datasets
+• Fast metadata extraction using jq when available
+
+PROGRESS FEEDBACK:
+• Real-time progress bars for long operations
+• Indeterminate spinners for background tasks
+• Progress logging to shared communication file
+• Visual feedback during all operations
+
+TPM (Tmux Plugin Manager) (⭐ ENHANCED!):
+• One-click installation with validation
+• 15+ essential plugins with enhanced features
 • Auto-save sessions every 15 min
 • Session persistence (survives reboots)
+• Layout templates and session management
 
 KEYBOARD SHORTCUTS (Outside TUI):
-• Ctrl+Alt+F - Session Browser
-• Ctrl+Alt+K - KB Search
-• Ctrl+Alt+P - Pane Switcher
-• Ctrl+Alt+L - Mode Launcher
-• Ctrl+Alt+M - This TUI
+• Ctrl+Alt+F - Session Browser (browse/restore sessions)
+• Ctrl+Alt+K - KB Search (search knowledge base)
+• Ctrl+Alt+P - Pane Switcher (navigate tmux panes)
+• Ctrl+Alt+L - Mode Launcher (select collaboration mode)
+• Ctrl+Alt+M - This TUI (main management interface)
 
 TUI NAVIGATION:
-• Arrow keys - Navigate menus
-• Enter - Select option
-• Esc/Cancel - Go back
+• Arrow keys - Navigate menus and lists
+• Enter - Select option or confirm
+• Esc/Cancel - Go back or cancel
 • Tab - Switch fields in forms
+• Space - Toggle selections in multi-select
+
+COMMAND LINE USAGE:
+• All scripts support --help for detailed usage
+• Configuration management: ai-config.sh [command]
+• Knowledge base operations: ai-kb-* commands
+• Session operations: ai-session-* commands
+• System validation: ai-self-test.sh
+• Knowledge indexing: ai-kb-index.sh
+
+TROUBLESHOOTING:
+• Check configuration: ai-config.sh show
+• Validate system: ai-self-test.sh
+• Validate knowledge base: ai-knowledge-init.sh
+• Rebuild index: ai-kb-index.sh --rebuild
+• View logs: tail -f /tmp/ai-agents-shared.txt
+• System status: Access via TUI System Status
 
 For full documentation:
   cat ~/.config/kitty/docs/TMUX-FZF-INTEGRATION.md
-  cat ~/.config/kitty/docs/TPM-INTEGRATION-GUIDE.md"
+  cat ~/.config/kitty/docs/TPM-INTEGRATION-GUIDE.md
+  cat ~/.config/kitty/docs/AI-COLLABORATION-SYSTEM.md
+  cat ~/.config/kitty/docs/SECURITY-PERFORMANCE-IMPROVEMENTS.md
 
-    echo "$help_text" | $DIALOG --title "Help" --programbox 25 75
+Version: 2.1.0
+Last Updated: $(date)"
+
+    echo "$help_text" | $DIALOG --title "Help & Documentation" --programbox 35 80
 }
 
 system_status() {
@@ -720,16 +919,17 @@ main_menu() {
     while true; do
         $DIALOG --title "AI Agents Management" \
                 --menu "Choose an option:" \
-                22 70 14 \
+                22 70 15 \
                 "1" "🚀 Start Collaboration Mode" \
                 "2" "🔍 fzf Tools (Session/KB/Pane/Mode)" \
                 "3" "💾 Session Management" \
                 "4" "📚 Knowledge Base" \
-                "5" "⚡ Launch Tmux Session" \
-                "6" "🔌 Setup TPM (Tmux Plugin Manager)" \
-                "7" "📊 System Status" \
-                "8" "❓ Help & Documentation" \
-                "9" "🚪 Exit" \
+                "5" "⚙️  Configuration Management" \
+                "6" "⚡ Launch Tmux Session" \
+                "7" "🔌 Setup TPM (Tmux Plugin Manager)" \
+                "8" "📊 System Status" \
+                "9" "❓ Help & Documentation" \
+                "10" "🚪 Exit" \
                 2> "$TEMP_FILE"
 
         local choice=$?
@@ -742,11 +942,12 @@ main_menu() {
             2) fzf_tools_menu ;;
             3) sessions_menu ;;
             4) kb_menu ;;
-            5) launch_tmux_session ;;
-            6) setup_tpm ;;
-            7) system_status ;;
-            8) show_help ;;
-            9) break ;;
+            5) config_menu ;;
+            6) launch_tmux_session ;;
+            7) setup_tpm ;;
+            8) system_status ;;
+            9) show_help ;;
+            10) break ;;
             *) break ;;
         esac
     done

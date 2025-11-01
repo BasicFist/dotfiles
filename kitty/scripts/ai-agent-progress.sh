@@ -11,6 +11,7 @@ SHARED_FILE="/tmp/ai-agents-shared.txt"
 # Source color library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/temp-files.sh"
 
 usage() {
     cat <<EOF
@@ -87,14 +88,13 @@ if [[ "$UPDATE_MODE" == true ]]; then
 
         # Create temp file with updated line
         if grep -q "$TASK_PLAIN" "$SHARED_FILE" 2>/dev/null; then
-            # Update existing line
-            TMP_FILE=$(mktemp)
+            # Update existing line (secure temp file with auto-cleanup)
+            TMP_FILE=$(temp_file)
             tac "$SHARED_FILE" | awk -v task="$TASK_PLAIN" -v msg="$MESSAGE" '
                 !found && $0 ~ task { print msg; found=1; next }
                 { print }
             ' | tac > "$TMP_FILE"
             cat "$TMP_FILE" > "$SHARED_FILE"
-            rm "$TMP_FILE"
         else
             # No existing line, append
             echo -e "$MESSAGE" >> "$SHARED_FILE"
