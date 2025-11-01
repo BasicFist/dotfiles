@@ -2,19 +2,25 @@
 # ═══════════════════════════════════════════════════════════
 # JSON Utilities Library
 # ═══════════════════════════════════════════════════════════
-# Safe JSON operations with comprehensive error handling
+# Safe JSON operations with comprehensive error handling and file locking
 #
 # Functions:
 #   json_validate       - Validate JSON file structure
-#   json_read           - Safely read a JSON field
-#   json_write          - Safely update JSON with atomic write
+#   json_read           - Safely read a JSON field (with shared lock)
+#   json_write          - Safely update JSON with atomic write (with exclusive lock)
 #   json_field_exists   - Check if a field exists
 #   json_create         - Create new JSON file with validation
 
 set -euo pipefail
 
-# Note: error handling library integration available but optional
-# Scripts can source both this and errors.sh for enhanced error handling
+# Source file locking library
+_JSON_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${_JSON_LIB_DIR}/file-locking.sh" ]]; then
+    source "${_JSON_LIB_DIR}/file-locking.sh"
+    JSON_LOCKING_ENABLED=true
+else
+    JSON_LOCKING_ENABLED=false
+fi
 
 # ───────────────────────────────────────────────────────────
 # Validate JSON file structure
@@ -71,8 +77,17 @@ json_read() {
     local query="$2"
     local default="${3:-}"
 
+    # Acquire shared lock if locking is enabled
+    local lock_acquired=false
+    if [[ "$JSON_LOCKING_ENABLED" == "true" ]] && lock_available; then
+        if lock_acquire_shared "$file" 5 2>/dev/null; then
+            lock_acquired=true
+        fi
+    fi
+
     # Validate JSON file first
     if ! json_validate "$file"; then
+        [[ "$lock_acquired" == "true" ]] && lock_release "$file"
         return 1
     fi
 
@@ -80,8 +95,12 @@ json_read() {
     local value
     if ! value=$(jq -r "$query" "$file" 2>/dev/null); then
         echo "❌ Failed to query JSON field: $query in $file" >&2
+        [[ "$lock_acquired" == "true" ]] && lock_release "$file"
         return 1
     fi
+
+    # Release lock before returning
+    [[ "$lock_acquired" == "true" ]] && lock_release "$file"
 
     # Check if result is null and we have a default
     if [[ "$value" == "null" ]]; then
@@ -118,8 +137,17 @@ json_write() {
     shift 2
     local jq_args=("$@")
 
+    # Acquire exclusive lock if locking is enabled
+    local lock_acquired=false
+    if [[ "$JSON_LOCKING_ENABLED" == "true" ]] && lock_available; then
+        if lock_acquire "$file" 10 2>/dev/null; then
+            lock_acquired=true
+        fi
+    fi
+
     # Validate input file
     if ! json_validate "$file"; then
+        [[ "$lock_acquired" == "true" ]] && lock_release "$file"
         return 1
     fi
 
@@ -127,6 +155,7 @@ json_write() {
     local backup="${file}.backup.$$"
     if ! cp "$file" "$backup" 2>/dev/null; then
         echo "❌ Failed to create backup: $backup" >&2
+        [[ "$lock_acquired" == "true" ]] && lock_release "$file"
         return 1
     fi
 
@@ -138,6 +167,7 @@ json_write() {
         echo "❌ Failed to update JSON: $file" >&2
         echo "   Update expression: $update_expr" >&2
         rm -f "$tmp" "$backup"
+        [[ "$lock_acquired" == "true" ]] && lock_release "$file"
         return 1
     fi
 
@@ -147,6 +177,7 @@ json_write() {
         echo "   Update expression: $update_expr" >&2
         echo "   Original file preserved" >&2
         rm -f "$tmp" "$backup"
+        [[ "$lock_acquired" == "true" ]] && lock_release "$file"
         return 1
     fi
 
@@ -158,14 +189,17 @@ json_write() {
             echo "❌ CRITICAL: Failed to restore backup!" >&2
             echo "   Backup location: $backup" >&2
             echo "   Temp location: $tmp" >&2
+            [[ "$lock_acquired" == "true" ]] && lock_release "$file"
             return 1
         }
         rm -f "$tmp"
+        [[ "$lock_acquired" == "true" ]] && lock_release "$file"
         return 1
     fi
 
-    # Success - remove backup
+    # Success - remove backup and release lock
     rm -f "$backup"
+    [[ "$lock_acquired" == "true" ]] && lock_release "$file"
     return 0
 }
 
