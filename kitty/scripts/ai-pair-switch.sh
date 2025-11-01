@@ -8,6 +8,7 @@ set -euo pipefail
 SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/json-utils.sh"
 
 MODE_STATE="/tmp/ai-mode-${SESSION}/pair-programming.json"
 
@@ -17,10 +18,22 @@ if [[ ! -f "$MODE_STATE" ]]; then
     exit 1
 fi
 
-# Read current state
-DRIVER=$(jq -r '.driver' "$MODE_STATE")
-NAVIGATOR=$(jq -r '.navigator' "$MODE_STATE")
-SWITCHES=$(jq -r '.switches' "$MODE_STATE")
+# Read current state with error handling
+DRIVER=$(json_read "$MODE_STATE" '.driver') || {
+    error_color "❌ Failed to read driver from mode state"
+    exit 1
+}
+NAVIGATOR=$(json_read "$MODE_STATE" '.navigator') || {
+    error_color "❌ Failed to read navigator from mode state"
+    exit 1
+}
+SWITCHES=$(json_read "$MODE_STATE" '.switches') || {
+    error_color "❌ Failed to read switches from mode state"
+    exit 1
+}
+
+# Log current state for visibility
+info_color "Current state: Driver=$DRIVER, Navigator=$NAVIGATOR, Switches=$SWITCHES"
 
 # Swap roles
 if [[ "$DRIVER" == "Agent1" ]]; then
@@ -31,12 +44,15 @@ else
     NEW_NAVIGATOR="Agent2"
 fi
 
-# Update state
-jq --arg driver "$NEW_DRIVER" \
-   --arg navigator "$NEW_NAVIGATOR" \
-   --arg switches "$((SWITCHES + 1))" \
-   '.driver = $driver | .navigator = $navigator | .switches = ($switches | tonumber)' \
-   "$MODE_STATE" > "${MODE_STATE}.tmp" && mv "${MODE_STATE}.tmp" "$MODE_STATE"
+# Update state with error handling
+if ! json_write "$MODE_STATE" \
+    '.driver = $driver | .navigator = $navigator | .switches = ($switches | tonumber)' \
+    --arg driver "$NEW_DRIVER" \
+    --arg navigator "$NEW_NAVIGATOR" \
+    --arg switches "$((SWITCHES + 1))"; then
+    error_color "❌ Failed to update mode state"
+    exit 1
+fi
 
 # Announce switch
 "${SCRIPT_DIR}/ai-agent-send-enhanced.sh" System INFO "🔄 Roles Switched!" --notify --blink
