@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════
-# AI Agents - fzf Mode Quick Launcher
+# AI Agents - Enhanced fzf Mode Launcher with Statistics
 # ═══════════════════════════════════════════════════════════
-# Interactive mode selection with descriptions and examples
+# Interactive mode selection with stats tracking and favorites
 
 set -euo pipefail
 
@@ -15,25 +15,200 @@ if ! command -v fzf &>/dev/null; then
     exit 1
 fi
 
-# List modes with metadata
-list_modes() {
-    cat <<'EOF'
-🎯 pair-programming    |  Driver/Navigator - One codes, one reviews in real-time
-💬 debate              |  Structured Discussion - Thesis → Antithesis → Synthesis
-🎓 teaching            |  Expert/Learner - Knowledge transfer with Q&A
-🤝 consensus           |  Agreement Building - Collaborative decision-making
-⚔️  competition        |  Best Solution Wins - Independent approaches compared
+# Source required libraries if available
+if [[ -f "${SCRIPT_DIR}/lib/constants.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/constants.sh" 2>/dev/null || true
+fi
+
+# Set stats file location
+STATS_FILE="${AI_AGENTS_STATE:-${HOME}/.ai-agents/state}/mode-stats.json"
+mkdir -p "$(dirname "$STATS_FILE")"
+
+# Initialize stats file
+init_stats() {
+    if [[ ! -f "$STATS_FILE" ]]; then
+        cat > "$STATS_FILE" <<'EOF'
+{
+  "pair-programming": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  },
+  "debate": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  },
+  "teaching": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  },
+  "consensus": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  },
+  "competition": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  }
+}
 EOF
+    fi
 }
 
-# Preview mode details
+# Get mode stats
+get_mode_stats() {
+    local mode="$1"
+
+    if [[ ! -f "$STATS_FILE" ]]; then
+        echo "0|never|false"
+        return
+    fi
+
+    local usage_count=$(jq -r ".[\"$mode\"].usage_count // 0" "$STATS_FILE" 2>/dev/null || echo "0")
+    local last_used=$(jq -r ".[\"$mode\"].last_used // \"never\"" "$STATS_FILE" 2>/dev/null || echo "never")
+    local is_favorite=$(jq -r ".[\"$mode\"].is_favorite // false" "$STATS_FILE" 2>/dev/null || echo "false")
+
+    echo "$usage_count|$last_used|$is_favorite"
+}
+
+# Update mode stats
+update_mode_stats() {
+    local mode="$1"
+    local timestamp=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
+
+    if [[ ! -f "$STATS_FILE" ]]; then
+        init_stats
+    fi
+
+    local temp_file=$(mktemp)
+    jq --arg mode "$mode" \
+       --arg ts "$timestamp" \
+       '.[$mode].usage_count += 1 | .[$mode].last_used = $ts' \
+       "$STATS_FILE" > "$temp_file" && mv "$temp_file" "$STATS_FILE"
+}
+
+# Toggle favorite
+toggle_favorite() {
+    local mode="$1"
+
+    if [[ ! -f "$STATS_FILE" ]]; then
+        init_stats
+    fi
+
+    local temp_file=$(mktemp)
+    jq --arg mode "$mode" \
+       '.[$mode].is_favorite = (.[$mode].is_favorite // false | not)' \
+       "$STATS_FILE" > "$temp_file" && mv "$temp_file" "$STATS_FILE"
+}
+
+# List modes with statistics
+list_modes() {
+    local sort_mode="${1:-alphabetical}"
+
+    init_stats
+
+    declare -A mode_data
+    declare -A mode_emoji
+    declare -A mode_desc
+
+    mode_emoji["pair-programming"]="🎯"
+    mode_emoji["debate"]="💬"
+    mode_emoji["teaching"]="🎓"
+    mode_emoji["consensus"]="🤝"
+    mode_emoji["competition"]="⚔️"
+
+    mode_desc["pair-programming"]="Driver/Navigator - One codes, one reviews in real-time"
+    mode_desc["debate"]="Structured Discussion - Thesis → Antithesis → Synthesis"
+    mode_desc["teaching"]="Expert/Learner - Knowledge transfer with Q&A"
+    mode_desc["consensus"]="Agreement Building - Collaborative decision-making"
+    mode_desc["competition"]="Best Solution Wins - Independent approaches compared"
+
+    for mode in pair-programming debate teaching consensus competition; do
+        local stats=$(get_mode_stats "$mode")
+        local usage_count=$(echo "$stats" | cut -d'|' -f1)
+        local last_used=$(echo "$stats" | cut -d'|' -f2)
+        local is_favorite=$(echo "$stats" | cut -d'|' -f3)
+
+        # Format last used as relative time
+        local last_used_display="never"
+        if [[ "$last_used" != "never" ]] && [[ "$last_used" != "null" ]]; then
+            local last_epoch=$(date -d "$last_used" +%s 2>/dev/null || echo "0")
+            local now_epoch=$(date +%s)
+            local diff=$((now_epoch - last_epoch))
+
+            if [[ $diff -lt 3600 ]]; then
+                last_used_display="$((diff / 60))m ago"
+            elif [[ $diff -lt 86400 ]]; then
+                last_used_display="$((diff / 3600))h ago"
+            else
+                last_used_display="$((diff / 86400))d ago"
+            fi
+        fi
+
+        # Favorite indicator
+        local fav_icon=""
+        if [[ "$is_favorite" == "true" ]]; then
+            fav_icon="⭐ "
+        fi
+
+        # Calculate sort key
+        local sort_key=""
+        case "$sort_mode" in
+            frequent)
+                sort_key=$(printf "%05d" "$((99999 - usage_count))")
+                ;;
+            recent)
+                local epoch=0
+                if [[ "$last_used" != "never" ]] && [[ "$last_used" != "null" ]]; then
+                    epoch=$(date -d "$last_used" +%s 2>/dev/null || echo "0")
+                fi
+                sort_key=$(printf "%010d" "$((9999999999 - epoch))")
+                ;;
+            favorites)
+                if [[ "$is_favorite" == "true" ]]; then
+                    sort_key="0"
+                else
+                    sort_key="1"
+                fi
+                ;;
+            *)
+                sort_key="$mode"
+                ;;
+        esac
+
+        # Format: sort_key|fav_icon|emoji|mode|usage|last_used|description
+        mode_data["$mode"]="$sort_key|$fav_icon|${mode_emoji[$mode]}|$mode|$usage_count|$last_used_display|${mode_desc[$mode]}"
+    done
+
+    # Output sorted
+    for mode in pair-programming debate teaching consensus competition; do
+        echo "${mode_data[$mode]}"
+    done | sort -t'|' -k1 | while IFS='|' read -r sort_key fav_icon emoji mode_name usage last desc; do
+        printf "%s%s %-18s  │ %3d uses  │ %-10s  │ %s\n" \
+            "$fav_icon" "$emoji" "$mode_name" "$usage" "$last" "$desc"
+    done
+}
+
+# Preview mode details (keeping original excellent content)
 preview_mode() {
     local line="$1"
-    local mode=$(echo "$line" | awk -F'|' '{print $1}' | awk '{print $2}')
+    local mode=$(echo "$line" | awk '{print $2}')
+
+    # Get stats
+    local stats=$(get_mode_stats "$mode")
+    local usage_count=$(echo "$stats" | cut -d'|' -f1)
+    local last_used=$(echo "$stats" | cut -d'|' -f2)
+    local is_favorite=$(echo "$stats" | cut -d'|' -f3)
 
     echo "═══════════════════════════════════════════════════════"
     echo "Mode: $mode"
     echo "═══════════════════════════════════════════════════════"
+    echo ""
+    echo "📊 Statistics: $usage_count uses | Last: $last_used | Favorite: $is_favorite"
     echo ""
 
     case "$mode" in
@@ -68,7 +243,7 @@ Navigator: "Consider edge cases - what if token is malformed?"
 Driver: "Good point, adding validation for that now..."
 
 COMMANDS:
-ai-mode-start.sh pair-programming --driver "Agent1" --navigator "Agent2"
+ai-mode-start.sh pair --driver "Agent1" --navigator "Agent2"
 PREVIEW
             ;;
         debate)
@@ -137,7 +312,7 @@ Learner: "What's the difference between useState and useEffect?"
 Expert: "useState manages component state, useEffect handles side effects..."
 
 COMMANDS:
-ai-mode-start.sh teaching --expert "Agent1" --learner "Agent2" --topic "React Hooks"
+ai-mode-start.sh teach --expert "Agent1" --learner "Agent2" --topic "React Hooks"
 PREVIEW
             ;;
         consensus)
@@ -225,7 +400,7 @@ Agent2: Uses query optimization and indexing
 Result: Combine both - cache + optimized queries
 
 COMMANDS:
-ai-mode-start.sh competition --problem "Sort algorithm for large dataset" --time-limit "30min"
+ai-mode-start.sh compete --problem "Sort algorithm for large dataset" --time-limit "30min"
 PREVIEW
             ;;
         *)
@@ -234,14 +409,40 @@ PREVIEW
     esac
 }
 
-export -f preview_mode
+export -f preview_mode get_mode_stats
+export STATS_FILE
+
+# Handle internal commands first
+if [[ "${1:-}" == "list-modes" ]]; then
+    list_modes "${2:-alphabetical}"
+    exit 0
+fi
+
+if [[ "${1:-}" == "--toggle-favorite" ]]; then
+    toggle_favorite "$2"
+    exit 0
+fi
+
+# Parse arguments
+SORT_MODE="alphabetical"
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --sort)
+            SORT_MODE="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
 
 # Build fzf options
 FZF_OPTS=(
     --ansi
     --preview 'bash -c "preview_mode {}"'
     --preview-window 'right:65%:wrap'
-    --header "🚀 AI Agents Mode Launcher | Enter=Launch | Ctrl-C=Cancel"
+    --header "🚀 AI Mode Launcher | Enter=Launch | Ctrl-F=Favorite | Alt-A/R/Q/F=Sort | ESC=Cancel"
     --border rounded
     --height 90%
     --layout reverse
@@ -254,25 +455,31 @@ FZF_OPTS=(
     --color 'marker:#ff79c6,spinner:#ffb86c,header:#6272a4'
     --bind 'ctrl-d:preview-half-page-down'
     --bind 'ctrl-u:preview-half-page-up'
-    --bind 'ctrl-f:preview-page-down'
-    --bind 'ctrl-b:preview-page-up'
+    --bind "ctrl-f:execute-silent(bash '$0' --toggle-favorite {2})+reload(bash '$0' list-modes $SORT_MODE)"
+    --bind "alt-a:reload(bash '$0' list-modes alphabetical)+change-header(🚀 Sort: Alphabetical)"
+    --bind "alt-r:reload(bash '$0' list-modes recent)+change-header(🚀 Sort: Recent)"
+    --bind "alt-q:reload(bash '$0' list-modes frequent)+change-header(🚀 Sort: Frequent)"
+    --bind "alt-f:reload(bash '$0' list-modes favorites)+change-header(🚀 Sort: Favorites)"
 )
 
 # If in tmux and version 3.2+, use popup
 if [[ -n "${TMUX:-}" ]]; then
     tmux_version=$(tmux -V | grep -oP '\d+\.\d+' || echo "0.0")
     if awk "BEGIN {exit !($tmux_version >= 3.2)}" 2>/dev/null; then
-        selected=$(list_modes | fzf-tmux -p 90%,90% "${FZF_OPTS[@]}")
+        selected=$(list_modes "$SORT_MODE" | fzf-tmux -p 90%,90% "${FZF_OPTS[@]}")
     else
-        selected=$(list_modes | fzf "${FZF_OPTS[@]}")
+        selected=$(list_modes "$SORT_MODE" | fzf "${FZF_OPTS[@]}")
     fi
 else
-    selected=$(list_modes | fzf "${FZF_OPTS[@]}")
+    selected=$(list_modes "$SORT_MODE" | fzf "${FZF_OPTS[@]}")
 fi
 
 # Process selection
 if [[ -n "$selected" ]]; then
-    mode=$(echo "$selected" | awk -F'|' '{print $1}' | awk '{print $2}')
+    mode=$(echo "$selected" | awk '{print $2}')
+
+    # Update stats
+    update_mode_stats "$mode"
 
     echo ""
     echo "═══════════════════════════════════════════════════════"
