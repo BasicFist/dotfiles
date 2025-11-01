@@ -53,6 +53,7 @@ if ! validate_path "${SCRIPT_DIR}"; then
 fi
 
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/temp-files.sh"
 
 # Check dependencies before proceeding
 if [[ -f "${SCRIPT_DIR}/lib/dependencies.sh" ]]; then
@@ -87,9 +88,8 @@ HEIGHT=20
 WIDTH=70
 MENU_HEIGHT=12
 
-# Temp file for dialog output
-TEMP_FILE=$(mktemp)
-trap "rm -f $TEMP_FILE" EXIT
+# Temp file for dialog output (auto-cleaned via temp-files.sh)
+TEMP_FILE=$(temp_file)
 
 # ═══════════════════════════════════════════════════════════
 # Helper Functions
