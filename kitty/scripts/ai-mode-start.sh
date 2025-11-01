@@ -8,6 +8,7 @@ set -euo pipefail
 SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/temp-files.sh"
 
 usage() {
     cat <<EOF
@@ -37,9 +38,11 @@ fi
 MODE="$1"
 shift
 
-# Create mode state directory
-MODE_STATE_DIR="/tmp/ai-mode-${SESSION}"
-mkdir -p "$MODE_STATE_DIR"
+# Create mode state directory with secure permissions
+MODE_STATE_DIR=$(temp_app_dir "ai-mode-${SESSION}") || {
+    error_color "❌ Failed to create mode state directory"
+    exit 1
+}
 
 case "$MODE" in
     pair|pairing)
