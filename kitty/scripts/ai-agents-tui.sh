@@ -161,7 +161,7 @@ start_pair_programming() {
     local driver=$(get_input "Pair Programming" "Driver agent:" "Agent1") || return
     local navigator=$(get_input "Pair Programming" "Navigator agent:" "Agent2") || return
 
-    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh pair \"$driver\" \"$navigator\""
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh pair $driver $navigator"
     show_message "Success" "Pair programming mode started!\n\nDriver: $driver\nNavigator: $navigator"
 }
 
