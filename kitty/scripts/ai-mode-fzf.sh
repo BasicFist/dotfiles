@@ -193,24 +193,27 @@ list_modes() {
         local sort_key=""
         case "$sort_mode" in
             frequent)
-                sort_key=$(printf "%05d" "$((99999 - usage_count))")
+                # Sort by usage, but keep core modes higher
+                sort_key="${mode_category[$mode]}-$(printf "%05d" "$((99999 - usage_count))")"
                 ;;
             recent)
                 local epoch=0
                 if [[ "$last_used" != "never" ]] && [[ "$last_used" != "null" ]]; then
                     epoch=$(date -d "$last_used" +%s 2>/dev/null || echo "0")
                 fi
-                sort_key=$(printf "%010d" "$((9999999999 - epoch))")
+                # Sort by recency, but keep core modes higher
+                sort_key="${mode_category[$mode]}-$(printf "%010d" "$((9999999999 - epoch))")"
                 ;;
             favorites)
                 if [[ "$is_favorite" == "true" ]]; then
-                    sort_key="0"
+                    sort_key="0-${mode_category[$mode]}"
                 else
-                    sort_key="1"
+                    sort_key="1-${mode_category[$mode]}"
                 fi
                 ;;
             *)
-                sort_key="$mode"
+                # Alphabetical: core modes first (0-*), then legacy (1-*)
+                sort_key="${mode_category[$mode]}-$mode"
                 ;;
         esac
 
@@ -625,11 +628,11 @@ FZF_OPTS=(
     --ansi
     --preview 'bash -c "preview_mode {}"'
     --preview-window 'right:65%:wrap'
-    --header "🚀 AI Mode Launcher | Enter=Launch | Ctrl-F=Favorite | Alt-A/R/Q/F=Sort | ESC=Cancel"
+    --header "🚀 AI Mode Launcher (⭐=Core, Default=Legacy) | Ctrl-F=Favorite | Alt-A/R/Q/F=Sort | ESC=Cancel"
     --border rounded
     --height 90%
     --layout reverse
-    --prompt "🔍 Select mode: "
+    --prompt "🔍 Select mode (Core modes first): "
     --pointer "▶"
     --marker "✓"
     --color 'fg:#f8f8f2,bg:#282a36,hl:#bd93f9'
@@ -639,9 +642,9 @@ FZF_OPTS=(
     --bind 'ctrl-d:preview-half-page-down'
     --bind 'ctrl-u:preview-half-page-up'
     --bind "ctrl-f:execute-silent(bash '$0' --toggle-favorite {2})+reload(bash '$0' list-modes $SORT_MODE)"
-    --bind "alt-a:reload(bash '$0' list-modes alphabetical)+change-header(🚀 Sort: Alphabetical)"
-    --bind "alt-r:reload(bash '$0' list-modes recent)+change-header(🚀 Sort: Recent)"
-    --bind "alt-q:reload(bash '$0' list-modes frequent)+change-header(🚀 Sort: Frequent)"
+    --bind "alt-a:reload(bash '$0' list-modes alphabetical)+change-header(🚀 Sort: Alphabetical (Core First))"
+    --bind "alt-r:reload(bash '$0' list-modes recent)+change-header(🚀 Sort: Recent (Core First))"
+    --bind "alt-q:reload(bash '$0' list-modes frequent)+change-header(🚀 Sort: Most Used (Core First))"
     --bind "alt-f:reload(bash '$0' list-modes favorites)+change-header(🚀 Sort: Favorites)"
 )
 

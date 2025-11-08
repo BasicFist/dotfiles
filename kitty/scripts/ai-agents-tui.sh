@@ -252,22 +252,65 @@ start_competition() {
 
 modes_menu() {
     while true; do
-        $DIALOG --title "Start Collaboration Mode" \
-                --menu "Core modes (recommended) / Legacy modes:" \
-                22 75 14 \
-                "" "━━━ CORE MODES (Recommended) ━━━" \
-                "1" "⭐ Pair Programming (Driver/Navigator)" \
-                "2" "⭐ Code Review (Author/Reviewer)" \
-                "3" "⭐ Debug Session (Reporter/Debugger)" \
-                "4" "⭐ Brainstorm (Free-form Ideas)" \
-                "" "━━━ LEGACY MODES (Compatibility) ━━━" \
-                "5" "Debate (Structured Discussion)" \
-                "6" "Teaching (Expert/Learner)" \
-                "7" "Consensus (Agreement Required)" \
-                "8" "Competition (Best Solution)" \
-                "" "" \
-                "9" "← Back to Main Menu" \
-                2> "$TEMP_FILE"
+        # Get usage stats for each mode
+        local pair_uses=$(get_mode_usage "pair-programming")
+        local review_uses=$(get_mode_usage "code-review")
+        local debug_uses=$(get_mode_usage "debug")
+        local brainstorm_uses=$(get_mode_usage "brainstorm")
+        local debate_uses=$(get_mode_usage "debate")
+        local teach_uses=$(get_mode_usage "teaching")
+        local consensus_uses=$(get_mode_usage "consensus")
+        local compete_uses=$(get_mode_usage "competition")
+
+        # Get recent mode for quick resume
+        local recent_mode=$(get_recent_mode)
+        local quick_resume=""
+        local quick_resume_num=""
+
+        # Build quick resume option if available
+        if [[ "$recent_mode" != "none" ]]; then
+            quick_resume="🔄 Quick Resume: ${recent_mode}"
+            quick_resume_num="0"
+        fi
+
+        # Build menu with or without quick resume
+        if [[ -n "$quick_resume_num" ]]; then
+            $DIALOG --title "Start Collaboration Mode" \
+                    --menu "Select mode (usage stats shown) | Recent: ${recent_mode}" \
+                    26 80 18 \
+                    "0" "$quick_resume" \
+                    "" "" \
+                    "" "━━━ CORE MODES (Recommended) ━━━" \
+                    "1" "⭐ Pair Programming [$pair_uses uses]" \
+                    "2" "⭐ Code Review [$review_uses uses]" \
+                    "3" "⭐ Debug Session [$debug_uses uses]" \
+                    "4" "⭐ Brainstorm [$brainstorm_uses uses]" \
+                    "" "━━━ LEGACY MODES (Compatibility) ━━━" \
+                    "5" "Debate [$debate_uses uses]" \
+                    "6" "Teaching [$teach_uses uses]" \
+                    "7" "Consensus [$consensus_uses uses]" \
+                    "8" "Competition [$compete_uses uses]" \
+                    "" "" \
+                    "9" "← Back to Main Menu" \
+                    2> "$TEMP_FILE"
+        else
+            $DIALOG --title "Start Collaboration Mode" \
+                    --menu "Select mode (usage stats shown):" \
+                    24 80 16 \
+                    "" "━━━ CORE MODES (Recommended) ━━━" \
+                    "1" "⭐ Pair Programming [$pair_uses uses]" \
+                    "2" "⭐ Code Review [$review_uses uses]" \
+                    "3" "⭐ Debug Session [$debug_uses uses]" \
+                    "4" "⭐ Brainstorm [$brainstorm_uses uses]" \
+                    "" "━━━ LEGACY MODES (Compatibility) ━━━" \
+                    "5" "Debate [$debate_uses uses]" \
+                    "6" "Teaching [$teach_uses uses]" \
+                    "7" "Consensus [$consensus_uses uses]" \
+                    "8" "Competition [$compete_uses uses]" \
+                    "" "" \
+                    "9" "← Back to Main Menu" \
+                    2> "$TEMP_FILE"
+        fi
 
         local choice=$?
         if [[ $choice -ne 0 ]]; then
@@ -275,6 +318,19 @@ modes_menu() {
         fi
 
         case $(cat "$TEMP_FILE") in
+            0)
+                # Quick resume - launch the recent mode
+                case "$recent_mode" in
+                    pair-programming) start_pair_programming ;;
+                    code-review) start_code_review ;;
+                    debug) start_debug ;;
+                    brainstorm) start_brainstorm ;;
+                    debate) start_debate ;;
+                    teaching) start_teaching ;;
+                    consensus) start_consensus ;;
+                    competition) start_competition ;;
+                esac
+                ;;
             1) start_pair_programming ;;
             2) start_code_review ;;
             3) start_debug ;;
@@ -962,14 +1018,151 @@ system_status() {
 }
 
 # ═══════════════════════════════════════════════════════════
+# Dashboard & Quick Actions
+# ═══════════════════════════════════════════════════════════
+
+# Get mode statistics from fzf stats file
+get_mode_stats_summary() {
+    local stats_file="${AI_AGENTS_STATE:-${HOME}/.ai-agents/state}/mode-stats.json"
+
+    if [[ ! -f "$stats_file" ]]; then
+        echo "No usage data"
+        return
+    fi
+
+    # Get total uses across all modes
+    local total_uses=$(jq '[.[].usage_count] | add // 0' "$stats_file" 2>/dev/null || echo "0")
+
+    # Get most used mode
+    local most_used=$(jq -r 'to_entries | max_by(.value.usage_count) | .key // "none"' "$stats_file" 2>/dev/null || echo "none")
+    local most_used_count=$(jq -r 'to_entries | max_by(.value.usage_count) | .value.usage_count // 0' "$stats_file" 2>/dev/null || echo "0")
+
+    # Get recently used mode
+    local recent=$(jq -r 'to_entries | map(select(.value.last_used != null)) | max_by(.value.last_used) | .key // "none"' "$stats_file" 2>/dev/null || echo "none")
+
+    echo "$total_uses|$most_used|$most_used_count|$recent"
+}
+
+# Get currently active mode
+get_active_mode() {
+    local mode_dir="/tmp/ai-mode-${SESSION}"
+    if [[ -d "$mode_dir" ]] && [[ -n "$(ls -A "$mode_dir" 2>/dev/null)" ]]; then
+        local mode_file=$(ls "$mode_dir"/*.json 2>/dev/null | head -1)
+        if [[ -f "$mode_file" ]]; then
+            jq -r '.mode // "none"' "$mode_file" 2>/dev/null || echo "none"
+            return
+        fi
+    fi
+    echo "none"
+}
+
+# Get individual mode usage count
+get_mode_usage() {
+    local mode="$1"
+    local stats_file="${AI_AGENTS_STATE:-${HOME}/.ai-agents/state}/mode-stats.json"
+
+    if [[ ! -f "$stats_file" ]]; then
+        echo "0"
+        return
+    fi
+
+    jq -r ".[\"$mode\"].usage_count // 0" "$stats_file" 2>/dev/null || echo "0"
+}
+
+# Get most recently used mode
+get_recent_mode() {
+    local stats_file="${AI_AGENTS_STATE:-${HOME}/.ai-agents/state}/mode-stats.json"
+
+    if [[ ! -f "$stats_file" ]]; then
+        echo "none"
+        return
+    fi
+
+    jq -r 'to_entries | map(select(.value.last_used != null)) | max_by(.value.last_used) | .key // "none"' "$stats_file" 2>/dev/null || echo "none"
+}
+
+# Dashboard with quick stats and actions
+show_dashboard() {
+    # Get statistics
+    local mode_stats=$(get_mode_stats_summary)
+    local total_uses=$(echo "$mode_stats" | cut -d'|' -f1)
+    local most_used=$(echo "$mode_stats" | cut -d'|' -f2)
+    local most_used_count=$(echo "$mode_stats" | cut -d'|' -f3)
+    local recent_mode=$(echo "$mode_stats" | cut -d'|' -f4)
+    local active_mode=$(get_active_mode)
+
+    # Get KB stats
+    local kb_dir="${HOME}/.ai-agents"
+    local doc_count=0
+    local lesson_count=0
+    local session_count=0
+    if [[ -d "$kb_dir" ]]; then
+        doc_count=$(find "$kb_dir/knowledge/docs" -name "*.md" 2>/dev/null | wc -l)
+        lesson_count=$(find "$kb_dir/lessons" -name "*.md" 2>/dev/null | wc -l)
+        session_count=$(find "$kb_dir/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+    fi
+
+    # Check tmux status
+    local tmux_status="❌ NOT RUNNING"
+    if tmux has-session -t "$SESSION" 2>/dev/null; then
+        tmux_status="✅ ACTIVE"
+    fi
+
+    local dashboard="
+╔═══════════════════════════════════════════════════════════════╗
+║                    AI AGENTS DASHBOARD                        ║
+╚═══════════════════════════════════════════════════════════════╝
+
+📊 QUICK STATS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Active Mode       : ${active_mode^^}
+  Recent Mode       : ${recent_mode}
+  Most Used Mode    : ${most_used} ($most_used_count uses)
+  Total Mode Uses   : $total_uses
+
+📚 KNOWLEDGE BASE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Documents         : $doc_count
+  Lessons Learned   : $lesson_count
+  Saved Sessions    : $session_count
+
+⚡ SYSTEM STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Tmux Session      : $tmux_status
+  Session Name      : $SESSION
+
+🚀 QUICK ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Start a collaboration mode
+  2. View full system status
+  3. Browse sessions with fzf
+  4. Search knowledge base
+  5. Return to main menu
+
+Press any key to continue...
+"
+
+    echo -e "$dashboard" | $DIALOG --title "Dashboard - Quick Overview" --programbox 30 70
+}
+
+# ═══════════════════════════════════════════════════════════
 # Main Menu
 # ═══════════════════════════════════════════════════════════
 
 main_menu() {
     while true; do
+        # Get dynamic status for subtitle
+        local active_mode=$(get_active_mode)
+        local subtitle="Choose an option:"
+        if [[ "$active_mode" != "none" ]]; then
+            subtitle="Active Mode: ${active_mode^^} | Choose an option:"
+        fi
+
         $DIALOG --title "AI Agents Management" \
-                --menu "Choose an option:" \
-                22 70 15 \
+                --menu "$subtitle" \
+                24 75 16 \
+                "0" "📊 Dashboard (Quick Overview & Stats)" \
+                "" "" \
                 "1" "🚀 Start Collaboration Mode" \
                 "2" "🔍 fzf Tools (Session/KB/Pane/Mode)" \
                 "3" "💾 Session Management" \
@@ -977,8 +1170,9 @@ main_menu() {
                 "5" "⚙️  Configuration Management" \
                 "6" "⚡ Launch Tmux Session" \
                 "7" "🔌 Setup TPM (Tmux Plugin Manager)" \
-                "8" "📊 System Status" \
+                "8" "📋 System Status (Detailed)" \
                 "9" "❓ Help & Documentation" \
+                "" "" \
                 "10" "🚪 Exit" \
                 2> "$TEMP_FILE"
 
@@ -988,6 +1182,7 @@ main_menu() {
         fi
 
         case $(cat "$TEMP_FILE") in
+            0) show_dashboard ;;
             1) modes_menu ;;
             2) fzf_tools_menu ;;
             3) sessions_menu ;;
