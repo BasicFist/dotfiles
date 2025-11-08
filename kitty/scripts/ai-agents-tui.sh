@@ -131,8 +131,8 @@ launch_in_terminal() {
     # Detects environment (tmux/kitty) and launches appropriately
     local cmd="$1"
 
-    # Sanitize command to prevent injection
-    if [[ ! "$cmd" =~ ^[a-zA-Z0-9/_.\- ]+$ ]]; then
+    # Sanitize command to prevent injection (no spaces allowed)
+    if [[ ! "$cmd" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
         show_error "Invalid command format detected!"
         return 1
     fi

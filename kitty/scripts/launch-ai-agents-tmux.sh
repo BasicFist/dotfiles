@@ -31,9 +31,9 @@ if ! command -v tmux >/dev/null 2>&1; then
     exit 1
 fi
 
-# Create shared communication file
+# Create shared communication file with secure permissions
 touch "$SHARED_FILE"
-chmod 666 "$SHARED_FILE" 2>/dev/null || true
+chmod 600 "$SHARED_FILE" 2>/dev/null || true
 
 # Check if session exists and create if needed
 if ! tmux has-session -t "$SESSION" 2>/dev/null; then
