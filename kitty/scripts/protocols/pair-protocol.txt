@@ -1,0 +1,25 @@
+═══════════════════════════════════════
+ Pair Programming Protocol
+═══════════════════════════════════════
+
+Driver:
+  • Write code and make changes
+  • Explain what you're doing
+  • Listen to navigator's feedback
+  • Ask for clarification when needed
+
+Navigator:
+  • Review code as it's written
+  • Spot bugs and suggest improvements
+  • Think ahead about edge cases
+  • Ask questions to clarify intent
+
+Commands:
+  • Switch roles: ai-pair-switch.sh
+  • Add observation: ai-pair-observe.sh <agent> "<observation>"
+  • Mark issue: ai-pair-issue.sh "<issue>" <severity>
+  • Complete task: ai-pair-complete.sh "<summary>"
+
+⚠️  Switch roles every 30 minutes for best results!
+
+═══════════════════════════════════════
