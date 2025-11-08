@@ -1,0 +1,37 @@
+═══════════════════════════════════════
+ Code Review Protocol
+═══════════════════════════════════════
+
+Reviewer:
+  • Read the code thoroughly
+  • Check for bugs and edge cases
+  • Verify code style and conventions
+  • Assess performance implications
+  • Identify security vulnerabilities
+  • Suggest improvements
+
+Author:
+  • Present the code context
+  • Explain design decisions
+  • Answer reviewer questions
+  • Take notes on feedback
+  • Implement agreed changes
+
+Review Checklist:
+  ✓ Correctness - Does it work?
+  ✓ Edge Cases - What can break?
+  ✓ Performance - Is it efficient?
+  ✓ Security - Any vulnerabilities?
+  ✓ Style - Follows conventions?
+  ✓ Tests - Adequate coverage?
+  ✓ Docs - Clear documentation?
+
+Commands:
+  • Add comment: ai-review-comment.sh <file> <line> "<comment>"
+  • Suggest fix: ai-review-suggest.sh "<suggestion>"
+  • Approve: ai-review-approve.sh
+  • Request changes: ai-review-changes.sh "<summary>"
+
+💡 Be constructive, specific, and kind in feedback!
+
+═══════════════════════════════════════

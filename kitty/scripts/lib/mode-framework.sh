@@ -38,9 +38,20 @@ mode_get_state_path() {
     local mode_name="$1"
 
     case "$mode_name" in
+        # Core practical modes
         pair|pair-programming)
             echo "$AI_AGENTS_STATE_PAIR"
             ;;
+        code-review|review)
+            echo "$AI_AGENTS_STATE_CODE_REVIEW"
+            ;;
+        debug|debugging)
+            echo "$AI_AGENTS_STATE_DEBUG"
+            ;;
+        brainstorm|ideas)
+            echo "$AI_AGENTS_STATE_BRAINSTORM"
+            ;;
+        # Legacy modes (kept for compatibility)
         debate|discussion)
             echo "$AI_AGENTS_STATE_DEBATE"
             ;;
@@ -55,7 +66,8 @@ mode_get_state_path() {
             ;;
         *)
             echo "❌ Unknown mode: $mode_name" >&2
-            echo "   Valid modes: pair, debate, teach, consensus, compete" >&2
+            echo "   Core modes: pair, code-review, debug, brainstorm" >&2
+            echo "   Legacy modes: debate, teach, consensus, compete" >&2
             return 1
             ;;
     esac
