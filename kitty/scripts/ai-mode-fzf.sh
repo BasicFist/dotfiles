@@ -34,6 +34,21 @@ init_stats() {
     "last_used": null,
     "is_favorite": false
   },
+  "code-review": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  },
+  "debug": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  },
+  "brainstorm": {
+    "usage_count": 0,
+    "last_used": null,
+    "is_favorite": false
+  },
   "debate": {
     "usage_count": 0,
     "last_used": null,
@@ -114,20 +129,39 @@ list_modes() {
     declare -A mode_data
     declare -A mode_emoji
     declare -A mode_desc
+    declare -A mode_category
 
-    mode_emoji["pair-programming"]="🎯"
+    # Core modes (recommended for daily use)
+    mode_emoji["pair-programming"]="⭐🎯"
+    mode_emoji["code-review"]="⭐📝"
+    mode_emoji["debug"]="⭐🐛"
+    mode_emoji["brainstorm"]="⭐💭"
+
+    # Legacy modes (kept for compatibility)
     mode_emoji["debate"]="💬"
     mode_emoji["teaching"]="🎓"
     mode_emoji["consensus"]="🤝"
     mode_emoji["competition"]="⚔️"
 
-    mode_desc["pair-programming"]="Driver/Navigator - One codes, one reviews in real-time"
-    mode_desc["debate"]="Structured Discussion - Thesis → Antithesis → Synthesis"
-    mode_desc["teaching"]="Expert/Learner - Knowledge transfer with Q&A"
-    mode_desc["consensus"]="Agreement Building - Collaborative decision-making"
-    mode_desc["competition"]="Best Solution Wins - Independent approaches compared"
+    mode_desc["pair-programming"]="[CORE] Driver/Navigator - Build features together"
+    mode_desc["code-review"]="[CORE] Author/Reviewer - Systematic code quality review"
+    mode_desc["debug"]="[CORE] Reporter/Debugger - Collaborative bug fixing"
+    mode_desc["brainstorm"]="[CORE] Free-form idea generation with 4 phases"
+    mode_desc["debate"]="[LEGACY] Structured Discussion - Thesis → Antithesis → Synthesis"
+    mode_desc["teaching"]="[LEGACY] Expert/Learner - Knowledge transfer with Q&A"
+    mode_desc["consensus"]="[LEGACY] Agreement Building - Collaborative decision-making"
+    mode_desc["competition"]="[LEGACY] Best Solution Wins - Independent approaches compared"
 
-    for mode in pair-programming debate teaching consensus competition; do
+    mode_category["pair-programming"]="0"
+    mode_category["code-review"]="0"
+    mode_category["debug"]="0"
+    mode_category["brainstorm"]="0"
+    mode_category["debate"]="1"
+    mode_category["teaching"]="1"
+    mode_category["consensus"]="1"
+    mode_category["competition"]="1"
+
+    for mode in pair-programming code-review debug brainstorm debate teaching consensus competition; do
         local stats=$(get_mode_stats "$mode")
         local usage_count=$(echo "$stats" | cut -d'|' -f1)
         local last_used=$(echo "$stats" | cut -d'|' -f2)
@@ -159,24 +193,27 @@ list_modes() {
         local sort_key=""
         case "$sort_mode" in
             frequent)
-                sort_key=$(printf "%05d" "$((99999 - usage_count))")
+                # Sort by usage, but keep core modes higher
+                sort_key="${mode_category[$mode]}-$(printf "%05d" "$((99999 - usage_count))")"
                 ;;
             recent)
                 local epoch=0
                 if [[ "$last_used" != "never" ]] && [[ "$last_used" != "null" ]]; then
                     epoch=$(date -d "$last_used" +%s 2>/dev/null || echo "0")
                 fi
-                sort_key=$(printf "%010d" "$((9999999999 - epoch))")
+                # Sort by recency, but keep core modes higher
+                sort_key="${mode_category[$mode]}-$(printf "%010d" "$((9999999999 - epoch))")"
                 ;;
             favorites)
                 if [[ "$is_favorite" == "true" ]]; then
-                    sort_key="0"
+                    sort_key="0-${mode_category[$mode]}"
                 else
-                    sort_key="1"
+                    sort_key="1-${mode_category[$mode]}"
                 fi
                 ;;
             *)
-                sort_key="$mode"
+                # Alphabetical: core modes first (0-*), then legacy (1-*)
+                sort_key="${mode_category[$mode]}-$mode"
                 ;;
         esac
 
@@ -185,7 +222,7 @@ list_modes() {
     done
 
     # Output sorted
-    for mode in pair-programming debate teaching consensus competition; do
+    for mode in pair-programming code-review debug brainstorm debate teaching consensus competition; do
         echo "${mode_data[$mode]}"
     done | sort -t'|' -k1 | while IFS='|' read -r sort_key fav_icon emoji mode_name usage last desc; do
         printf "%s%s %-18s  │ %3d uses  │ %-10s  │ %s\n" \
@@ -244,6 +281,155 @@ Driver: "Good point, adding validation for that now..."
 
 COMMANDS:
 ai-mode-start.sh pair --driver "Agent1" --navigator "Agent2"
+PREVIEW
+            ;;
+        code-review)
+            cat <<'PREVIEW'
+📝 CODE REVIEW MODE
+
+CONCEPT:
+One agent submits code for review, another provides systematic feedback
+on quality, security, performance, and best practices. Like a real PR review.
+
+ROLES:
+• Author: Submits code, explains decisions, addresses feedback
+• Reviewer: Examines code systematically, provides constructive feedback
+
+BEST FOR:
+• Pre-merge PR reviews for quality assurance
+• Catching bugs before production deployment
+• Learning from others' code and sharing knowledge
+• Ensuring code follows team conventions
+
+REVIEW CHECKLIST:
+✓ Correctness - Does it work as intended?
+✓ Edge Cases - What can break? Error handling?
+✓ Performance - Is it efficient? Any bottlenecks?
+✓ Security - Any vulnerabilities? Input validation?
+✓ Style - Follows coding conventions?
+✓ Tests - Adequate test coverage?
+✓ Docs - Clear comments and documentation?
+
+WORKFLOW:
+1. Author presents code for review
+2. Reviewer examines code systematically using checklist
+3. Reviewer provides specific, constructive feedback
+4. Author addresses comments and questions
+5. Approve or request changes
+
+EXAMPLE:
+Reviewer: "Line 42 - This could cause null pointer exception"
+Author: "Good catch! I'll add null check before accessing property"
+Reviewer: "Consider using bcrypt instead of MD5 for password hashing"
+Author: "Agreed - security issue. Will update to bcrypt"
+
+COMMANDS:
+ai-mode-start.sh code-review --author "Agent1" --reviewer "Agent2" --file "auth.js"
+PREVIEW
+            ;;
+        debug)
+            cat <<'PREVIEW'
+🐛 DEBUG SESSION MODE
+
+CONCEPT:
+Collaborative debugging where one agent has a bug and another helps
+solve it through systematic investigation. Fresh eyes on tough problems.
+
+ROLES:
+• Bug Reporter: Has the bug, provides context and error messages
+• Debugger: Guides investigation, proposes hypotheses, suggests solutions
+
+BEST FOR:
+• Stuck on a bug for >30 minutes
+• Need fresh perspective on complex problem
+• Hard-to-reproduce or intermittent bugs
+• Learning systematic debugging techniques
+
+DEBUG PROCESS (6 Steps):
+1. REPRODUCE - Can we reliably trigger it?
+2. ISOLATE - What's the minimal failing case?
+3. INVESTIGATE - What's actually happening? Add logging
+4. HYPOTHESIZE - What could cause this behavior?
+5. TEST - Try potential solutions systematically
+6. VERIFY - Did it fix the root cause? Test edge cases
+
+WORKFLOW:
+Reporter: Describes bug + error messages + context
+Debugger: Asks clarifying questions, requests logs
+Both: Work through 6-step debugging process
+Debugger: Proposes hypotheses based on findings
+Reporter: Tests proposed solutions
+Both: Verify fix resolves issue
+
+EXAMPLE:
+Reporter: "Users can't login after deployment - getting 500 error"
+Reporter: "Error: Cannot read property 'hash' of undefined"
+Debugger: "Sounds like user object is null. Check DB connection?"
+Reporter: "DB shows users exist, but password field is missing!"
+Debugger: "Did the schema migration run on production?"
+Reporter: "No! Running migration now... login works!"
+
+COMMANDS:
+ai-mode-start.sh debug --reporter "Agent1" --debugger "Agent2" --bug "TypeError in login"
+PREVIEW
+            ;;
+        brainstorm)
+            cat <<'PREVIEW'
+💭 BRAINSTORM MODE
+
+CONCEPT:
+Free-form idea generation session with no judgment. Generate creative
+solutions through divergent and convergent thinking phases.
+
+4-PHASE WORKFLOW:
+1. DIVERGE (10 min) - Generate ideas freely, no criticism allowed
+2. GROUP (5 min) - Cluster similar ideas into themes
+3. CONVERGE (10 min) - Evaluate and prioritize best ideas
+4. REFINE (5 min) - Detail the top ideas with specifics
+
+BEST FOR:
+• Planning new features and architecture decisions
+• Problem-solving when stuck or exploring alternatives
+• Quick decision-making with multiple options
+• Team creativity and innovative thinking
+
+BRAINSTORM RULES:
+✓ All ideas welcome - no bad ideas
+✓ Defer judgment - critique comes later
+✓ Encourage wild ideas - creativity thrives
+✓ Build on each other - "yes, and..." thinking
+✓ Stay focused on topic - don't drift
+✗ NO criticism during diverge phase!
+
+WORKFLOW:
+1. Define clear brainstorm topic/question
+2. DIVERGE: Rapidly generate ideas without judgment
+3. GROUP: Organize ideas into logical themes
+4. CONVERGE: Vote on best ideas, discuss trade-offs
+5. REFINE: Add details and action steps to top ideas
+
+EXAMPLE:
+Topic: "Improve app performance"
+
+DIVERGE:
+• Add Redis caching layer
+• Lazy load images
+• Use CDN for static assets
+• Database query optimization
+• Code splitting for bundles
+• Server-side rendering
+
+GROUP:
+• Frontend: lazy loading, code splitting, SSR
+• Backend: Redis, query optimization
+• Infrastructure: CDN
+
+CONVERGE: Vote for Redis caching + query optimization
+
+REFINE: "Use Redis for user sessions (TTL: session) and API responses (TTL: 5min)"
+
+COMMANDS:
+ai-mode-start.sh brainstorm --topic "How to handle API rate limiting"
 PREVIEW
             ;;
         debate)
@@ -442,11 +628,11 @@ FZF_OPTS=(
     --ansi
     --preview 'bash -c "preview_mode {}"'
     --preview-window 'right:65%:wrap'
-    --header "🚀 AI Mode Launcher | Enter=Launch | Ctrl-F=Favorite | Alt-A/R/Q/F=Sort | ESC=Cancel"
+    --header "🚀 AI Mode Launcher (⭐=Core, Default=Legacy) | Ctrl-F=Favorite | Alt-A/R/Q/F=Sort | ESC=Cancel"
     --border rounded
     --height 90%
     --layout reverse
-    --prompt "🔍 Select mode: "
+    --prompt "🔍 Select mode (Core modes first): "
     --pointer "▶"
     --marker "✓"
     --color 'fg:#f8f8f2,bg:#282a36,hl:#bd93f9'
@@ -456,9 +642,9 @@ FZF_OPTS=(
     --bind 'ctrl-d:preview-half-page-down'
     --bind 'ctrl-u:preview-half-page-up'
     --bind "ctrl-f:execute-silent(bash '$0' --toggle-favorite {2})+reload(bash '$0' list-modes $SORT_MODE)"
-    --bind "alt-a:reload(bash '$0' list-modes alphabetical)+change-header(🚀 Sort: Alphabetical)"
-    --bind "alt-r:reload(bash '$0' list-modes recent)+change-header(🚀 Sort: Recent)"
-    --bind "alt-q:reload(bash '$0' list-modes frequent)+change-header(🚀 Sort: Frequent)"
+    --bind "alt-a:reload(bash '$0' list-modes alphabetical)+change-header(🚀 Sort: Alphabetical (Core First))"
+    --bind "alt-r:reload(bash '$0' list-modes recent)+change-header(🚀 Sort: Recent (Core First))"
+    --bind "alt-q:reload(bash '$0' list-modes frequent)+change-header(🚀 Sort: Most Used (Core First))"
     --bind "alt-f:reload(bash '$0' list-modes favorites)+change-header(🚀 Sort: Favorites)"
 )
 

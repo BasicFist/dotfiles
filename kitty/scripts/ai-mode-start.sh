@@ -13,19 +13,32 @@ usage() {
     cat <<EOF
 Usage: ai-mode-start.sh <mode> [options]
 
-Available Modes:
-  pair         Pair programming (driver/navigator)
-  debate       Structured debate/discussion
-  teach        Teaching mode (expert/learner)
-  consensus    Consensus building (agents must agree)
-  compete      Competition (best solution wins)
+Core Modes (Recommended for Daily Use):
+  pair            Pair programming (driver/navigator)
+  code-review     Code review session (author/reviewer)
+  debug           Debug session (reporter/debugger)
+  brainstorm      Brainstorm ideas (free-form, no judgment)
+
+Legacy Modes (Kept for Compatibility):
+  debate          Structured debate/discussion
+  teach           Teaching mode (expert/learner)
+  consensus       Consensus building (agents must agree)
+  compete         Competition (best solution wins)
 
 Examples:
-  ai-mode-start.sh pair Agent1=driver Agent2=navigator
+  # Core modes
+  ai-mode-start.sh pair Agent1 Agent2
+  ai-mode-start.sh code-review Alice Bob "src/api.js"
+  ai-mode-start.sh debug Alice Bob "TypeError on line 42"
+  ai-mode-start.sh brainstorm "How to improve performance"
+
+  # Legacy modes
   ai-mode-start.sh debate "Should we use REST or GraphQL?"
-  ai-mode-start.sh teach Agent1=expert Agent2=learner topic="async programming"
+  ai-mode-start.sh teach Expert Learner "async programming"
   ai-mode-start.sh consensus "API design decisions"
   ai-mode-start.sh compete "Implement sorting algorithm"
+
+See NEW-MODES-GUIDE.md for detailed usage and benefits.
 EOF
 }
 
@@ -41,9 +54,20 @@ shift
 ensure_directories
 
 case "$MODE" in
-    pair|pairing)
+    # Core practical modes
+    pair|pairing|pair-programming)
         exec "${SCRIPT_DIR}/modes/pair-programming.sh" "$@"
         ;;
+    code-review|review)
+        exec "${SCRIPT_DIR}/modes/code-review.sh" "$@"
+        ;;
+    debug|debugging)
+        exec "${SCRIPT_DIR}/modes/debug.sh" "$@"
+        ;;
+    brainstorm|ideas)
+        exec "${SCRIPT_DIR}/modes/brainstorm.sh" "$@"
+        ;;
+    # Legacy modes (kept for compatibility)
     debate|discuss)
         exec "${SCRIPT_DIR}/modes/debate.sh" "$@"
         ;;

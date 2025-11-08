@@ -1,0 +1,42 @@
+═══════════════════════════════════════
+ Debug Session Protocol
+═══════════════════════════════════════
+
+Bug Reporter:
+  • Describe the bug clearly
+  • Provide error messages
+  • Share relevant code
+  • Show expected vs actual behavior
+  • List what you've tried
+
+Debugger:
+  • Ask clarifying questions
+  • Propose hypotheses
+  • Suggest debugging steps
+  • Guide through investigation
+  • Help identify root cause
+
+Debug Process:
+  1. Reproduce - Can we replicate it?
+  2. Isolate - What's the minimal case?
+  3. Investigate - What's happening?
+  4. Hypothesize - What could cause this?
+  5. Test - Try potential solutions
+  6. Verify - Did it fix the issue?
+
+Debugging Tools:
+  • Console logs / print statements
+  • Debugger / breakpoints
+  • Stack traces
+  • Test cases
+  • Git bisect
+
+Commands:
+  • Log finding: ai-debug-log.sh "<finding>"
+  • Hypothesis: ai-debug-hypothesis.sh "<theory>"
+  • Solution: ai-debug-solution.sh "<fix>"
+  • Verify: ai-debug-verify.sh "<result>"
+
+🔍 Stay systematic, patient, and thorough!
+
+═══════════════════════════════════════

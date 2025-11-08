@@ -10,6 +10,10 @@
 #   source "${SCRIPT_DIR}/lib/constants.sh"
 #   echo "$AI_AGENTS_SESSION_DEFAULT"
 
+# Prevent re-sourcing (constants are readonly)
+[[ -n "${AI_AGENTS_CONSTANTS_LOADED:-}" ]] && return 0
+readonly AI_AGENTS_CONSTANTS_LOADED=true
+
 set -euo pipefail
 
 # ═══════════════════════════════════════════════════════════
@@ -48,7 +52,13 @@ readonly AI_AGENTS_LOCK_DIR="${AI_AGENTS_TMP_ROOT}/ai-agents-locks"
 # ═══════════════════════════════════════════════════════════
 
 # Mode-specific state file paths
+# Core modes (useful)
 readonly AI_AGENTS_STATE_PAIR="${AI_AGENTS_MODE_DIR}/pair-programming.json"
+readonly AI_AGENTS_STATE_CODE_REVIEW="${AI_AGENTS_MODE_DIR}/code-review.json"
+readonly AI_AGENTS_STATE_DEBUG="${AI_AGENTS_MODE_DIR}/debug.json"
+readonly AI_AGENTS_STATE_BRAINSTORM="${AI_AGENTS_MODE_DIR}/brainstorm.json"
+
+# Legacy modes (less practical, kept for compatibility)
 readonly AI_AGENTS_STATE_DEBATE="${AI_AGENTS_MODE_DIR}/debate.json"
 readonly AI_AGENTS_STATE_TEACHING="${AI_AGENTS_MODE_DIR}/teaching.json"
 readonly AI_AGENTS_STATE_CONSENSUS="${AI_AGENTS_MODE_DIR}/consensus.json"

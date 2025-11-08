@@ -1,0 +1,45 @@
+═══════════════════════════════════════
+ Brainstorm Session Protocol
+═══════════════════════════════════════
+
+Everyone:
+  • Share ideas freely
+  • No judgment or criticism
+  • Build on others' ideas
+  • Think outside the box
+  • Quantity over quality first
+
+Brainstorm Phases:
+  1. Diverge (10 min)
+     Generate as many ideas as possible
+     No filtering, no critiques
+
+  2. Group (5 min)
+     Cluster similar ideas
+     Identify themes
+
+  3. Converge (10 min)
+     Evaluate and prioritize
+     Select best ideas
+
+  4. Refine (5 min)
+     Detail the top ideas
+     Plan next steps
+
+Brainstorm Rules:
+  ✓ All ideas welcome
+  ✓ Defer judgment
+  ✓ Encourage wild ideas
+  ✓ Build on each other
+  ✓ Stay focused on topic
+  ✗ No criticism during diverge phase
+
+Commands:
+  • Add idea: ai-brainstorm-idea.sh "<idea>"
+  • Group ideas: ai-brainstorm-group.sh "<theme>" <idea1> <idea2>
+  • Vote: ai-brainstorm-vote.sh <idea_number>
+  • Refine: ai-brainstorm-refine.sh <idea_number> "<details>"
+
+💭 Quantity breeds quality - go wild first!
+
+═══════════════════════════════════════
