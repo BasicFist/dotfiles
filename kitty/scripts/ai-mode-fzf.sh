@@ -126,6 +126,20 @@ list_modes() {
 
     init_stats
 
+    # Print smart recommendation header (non-selectable info line)
+    if [[ -f "$STATS_FILE" ]]; then
+        local most_used=$(jq -r 'to_entries | max_by(.value.usage_count) | .key // "none"' "$STATS_FILE" 2>/dev/null || echo "none")
+        local most_used_count=$(jq -r 'to_entries | max_by(.value.usage_count) | .value.usage_count // 0' "$STATS_FILE" 2>/dev/null || echo "0")
+        local recent=$(jq -r 'to_entries | map(select(.value.last_used != null)) | max_by(.value.last_used) | .key // "none"' "$STATS_FILE" 2>/dev/null || echo "none")
+
+        if [[ "$most_used" != "none" ]] || [[ "$recent" != "none" ]]; then
+            echo ""
+            printf "\033[1;35m💡 SUGGESTIONS:\033[0m  Most used: \033[1m%s\033[0m (%s uses)  │  Recent: \033[1m%s\033[0m\n" \
+                "$most_used" "$most_used_count" "$recent"
+            echo ""
+        fi
+    fi
+
     declare -A mode_data
     declare -A mode_emoji
     declare -A mode_desc
@@ -221,12 +235,31 @@ list_modes() {
         mode_data["$mode"]="$sort_key|$fav_icon|${mode_emoji[$mode]}|$mode|$usage_count|$last_used_display|${mode_desc[$mode]}"
     done
 
-    # Output sorted
+    # Output sorted with visual separator between core and legacy
+    local last_category=""
     for mode in pair-programming code-review debug brainstorm debate teaching consensus competition; do
         echo "${mode_data[$mode]}"
     done | sort -t'|' -k1 | while IFS='|' read -r sort_key fav_icon emoji mode_name usage last desc; do
-        printf "%s%s %-18s  │ %3d uses  │ %-10s  │ %s\n" \
-            "$fav_icon" "$emoji" "$mode_name" "$usage" "$last" "$desc"
+        # Extract category from sort key (first character: 0=core, 1=legacy)
+        local category="${sort_key:0:1}"
+
+        # Print separator when transitioning from core (0) to legacy (1)
+        if [[ -n "$last_category" ]] && [[ "$last_category" == "0" ]] && [[ "$category" == "1" ]]; then
+            # ANSI color: dim gray separator
+            printf "\033[2m%s\033[0m\n" "────────────────────────────── LEGACY MODES ──────────────────────────────"
+        fi
+        last_category="$category"
+
+        # Color-code output based on category
+        if [[ "$category" == "0" ]]; then
+            # Core modes: bright/bold
+            printf "\033[1m%s%s\033[0m \033[1m%-18s\033[0m  │ \033[32m%3d uses\033[0m  │ \033[36m%-10s\033[0m  │ %s\n" \
+                "$fav_icon" "$emoji" "$mode_name" "$usage" "$last" "$desc"
+        else
+            # Legacy modes: normal/dimmed
+            printf "\033[2m%s%s %-18s\033[0m  │ %3d uses  │ %-10s  │ \033[2m%s\033[0m\n" \
+                "$fav_icon" "$emoji" "$mode_name" "$usage" "$last" "$desc"
+        fi
     done
 }
 
@@ -241,11 +274,53 @@ preview_mode() {
     local last_used=$(echo "$stats" | cut -d'|' -f2)
     local is_favorite=$(echo "$stats" | cut -d'|' -f3)
 
+    # Calculate total usage across all modes
+    local total_usage=0
+    if [[ -f "$STATS_FILE" ]]; then
+        total_usage=$(jq '[.[].usage_count] | add // 0' "$STATS_FILE" 2>/dev/null || echo "0")
+    fi
+
+    # Calculate percentage of total usage
+    local usage_percent=0
+    if [[ $total_usage -gt 0 ]]; then
+        usage_percent=$(awk "BEGIN {printf \"%.0f\", ($usage_count / $total_usage) * 100}")
+    fi
+
+    # Determine usage trend indicator
+    local trend_indicator="→"
+    local trend_text="Stable"
+    if [[ $usage_count -gt 5 ]]; then
+        trend_indicator="↗"
+        trend_text="Popular"
+    elif [[ $usage_count -eq 0 ]]; then
+        trend_indicator="○"
+        trend_text="Never used"
+    fi
+
+    # Determine category (core vs legacy)
+    local category="LEGACY"
+    local category_color="\033[2m"
+    case "$mode" in
+        pair-programming|code-review|debug|brainstorm)
+            category="CORE"
+            category_color="\033[1;32m"
+            ;;
+    esac
+
     echo "═══════════════════════════════════════════════════════"
-    echo "Mode: $mode"
+    echo -e "Mode: \033[1m$mode\033[0m  ${category_color}[$category]\033[0m"
     echo "═══════════════════════════════════════════════════════"
     echo ""
-    echo "📊 Statistics: $usage_count uses | Last: $last_used | Favorite: $is_favorite"
+    echo "📊 USAGE STATISTICS"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "  Total Uses      : \033[1m$usage_count\033[0m ($usage_percent% of all mode usage)"
+    echo "  Last Used       : $last_used"
+    echo -e "  Usage Trend     : $trend_indicator $trend_text"
+    if [[ "$is_favorite" == "true" ]]; then
+        echo -e "  Favorite        : \033[1;33m⭐ Yes\033[0m"
+    else
+        echo "  Favorite        : No (Ctrl+F to add)"
+    fi
     echo ""
 
     case "$mode" in
@@ -595,12 +670,40 @@ PREVIEW
     esac
 }
 
-export -f preview_mode get_mode_stats
+# Filter modes by category
+filter_core() {
+    list_modes "${1:-alphabetical}" | grep -E "^\033\[1m.*\[CORE\]"
+}
+
+filter_legacy() {
+    list_modes "${1:-alphabetical}" | grep -E "LEGACY MODES|^\033\[2m.*\[LEGACY\]"
+}
+
+# Get most used mode for quick launch
+get_most_used_mode() {
+    if [[ ! -f "$STATS_FILE" ]]; then
+        echo ""
+        return
+    fi
+    jq -r 'to_entries | max_by(.value.usage_count) | .key // ""' "$STATS_FILE" 2>/dev/null || echo ""
+}
+
+export -f preview_mode get_mode_stats filter_core filter_legacy get_most_used_mode
 export STATS_FILE
 
 # Handle internal commands first
 if [[ "${1:-}" == "list-modes" ]]; then
     list_modes "${2:-alphabetical}"
+    exit 0
+fi
+
+if [[ "${1:-}" == "list-core" ]]; then
+    filter_core "${2:-alphabetical}"
+    exit 0
+fi
+
+if [[ "${1:-}" == "list-legacy" ]]; then
+    filter_legacy "${2:-alphabetical}"
     exit 0
 fi
 
@@ -623,29 +726,46 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Build fzf options
+# Build fzf options with enhanced keyboard shortcuts
 FZF_OPTS=(
     --ansi
     --preview 'bash -c "preview_mode {}"'
     --preview-window 'right:65%:wrap'
-    --header "🚀 AI Mode Launcher (⭐=Core, Default=Legacy) | Ctrl-F=Favorite | Alt-A/R/Q/F=Sort | ESC=Cancel"
+    --header "🚀 Mode Launcher | Ctrl-F=Fav | Ctrl-C/L/X=Filter | Alt-A/R/Q=Sort | Ctrl-0=Top | ?=Help"
     --border rounded
     --height 90%
     --layout reverse
-    --prompt "🔍 Select mode (Core modes first): "
+    --prompt "🔍 Select mode (Core first): "
     --pointer "▶"
     --marker "✓"
     --color 'fg:#f8f8f2,bg:#282a36,hl:#bd93f9'
     --color 'fg+:#f8f8f2,bg+:#44475a,hl+:#bd93f9'
     --color 'info:#ffb86c,prompt:#50fa7b,pointer:#ff79c6'
     --color 'marker:#ff79c6,spinner:#ffb86c,header:#6272a4'
+
+    # Preview navigation
     --bind 'ctrl-d:preview-half-page-down'
     --bind 'ctrl-u:preview-half-page-up'
+
+    # Favorite toggle
     --bind "ctrl-f:execute-silent(bash '$0' --toggle-favorite {2})+reload(bash '$0' list-modes $SORT_MODE)"
+
+    # Sorting shortcuts
     --bind "alt-a:reload(bash '$0' list-modes alphabetical)+change-header(🚀 Sort: Alphabetical (Core First))"
     --bind "alt-r:reload(bash '$0' list-modes recent)+change-header(🚀 Sort: Recent (Core First))"
     --bind "alt-q:reload(bash '$0' list-modes frequent)+change-header(🚀 Sort: Most Used (Core First))"
     --bind "alt-f:reload(bash '$0' list-modes favorites)+change-header(🚀 Sort: Favorites)"
+
+    # Filter shortcuts
+    --bind "ctrl-c:reload(bash '$0' list-core $SORT_MODE)+change-header(🔍 Filter: CORE modes only (Ctrl-X to clear))"
+    --bind "ctrl-l:reload(bash '$0' list-legacy $SORT_MODE)+change-header(🔍 Filter: LEGACY modes only (Ctrl-X to clear))"
+    --bind "ctrl-x:reload(bash '$0' list-modes $SORT_MODE)+change-header(🚀 Filter: ALL modes (Core First))"
+
+    # Quick launch: Jump to most-used mode (top of frequent sort)
+    --bind "ctrl-0:reload(bash '$0' list-modes frequent)+change-header(🚀 Jumped to Most Used Mode)+first"
+
+    # Help
+    --bind "?:toggle-preview"
 )
 
 # If in tmux and version 3.2+, use popup
