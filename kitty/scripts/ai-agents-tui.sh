@@ -154,7 +154,7 @@ launch_in_terminal() {
 }
 
 # ═══════════════════════════════════════════════════════════
-# Mode Management
+# Mode Management - Core Practical Modes
 # ═══════════════════════════════════════════════════════════
 
 start_pair_programming() {
@@ -164,6 +164,40 @@ start_pair_programming() {
     launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh pair $driver $navigator"
     show_message "Success" "Pair programming mode started!\n\nDriver: $driver\nNavigator: $navigator"
 }
+
+start_code_review() {
+    local author=$(get_input "Code Review" "Author (submits code):" "Agent1") || return
+    local reviewer=$(get_input "Code Review" "Reviewer (provides feedback):" "Agent2") || return
+    local file=$(get_input "Code Review" "File/description (optional):" "") || return
+
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh code-review \"$author\" \"$reviewer\" \"$file\""
+    show_message "Success" "Code review mode started!\n\nAuthor: $author\nReviewer: $reviewer\nTarget: ${file:-unspecified}"
+}
+
+start_debug() {
+    local reporter=$(get_input "Debug Session" "Bug Reporter:" "Agent1") || return
+    local debugger=$(get_input "Debug Session" "Debugger (helps solve):" "Agent2") || return
+    local bug_desc=$(get_input "Debug Session" "Bug description (optional):" "") || return
+
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh debug \"$reporter\" \"$debugger\" \"$bug_desc\""
+    show_message "Success" "Debug session started!\n\nReporter: $reporter\nDebugger: $debugger\nBug: ${bug_desc:-unspecified}"
+}
+
+start_brainstorm() {
+    local topic=$(get_input "Brainstorm Session" "Topic to brainstorm:") || return
+
+    if [[ -z "$topic" ]]; then
+        show_error "Topic cannot be empty!"
+        return
+    fi
+
+    launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh brainstorm \"$topic\""
+    show_message "Success" "Brainstorm session started!\n\nTopic: $topic\n\nPhase: DIVERGE (generate ideas freely)"
+}
+
+# ═══════════════════════════════════════════════════════════
+# Legacy Modes (Kept for Compatibility)
+# ═══════════════════════════════════════════════════════════
 
 start_debate() {
     local topic=$(get_input "Debate Mode" "Debate topic:") || return
@@ -219,14 +253,20 @@ start_competition() {
 modes_menu() {
     while true; do
         $DIALOG --title "Start Collaboration Mode" \
-                --menu "Choose a mode to start:" \
-                $HEIGHT $WIDTH $MENU_HEIGHT \
-                "1" "Pair Programming (Driver/Navigator)" \
-                "2" "Debate (Structured Discussion)" \
-                "3" "Teaching (Expert/Learner)" \
-                "4" "Consensus (Agreement Required)" \
-                "5" "Competition (Best Solution Wins)" \
-                "6" "← Back to Main Menu" \
+                --menu "Core modes (recommended) / Legacy modes:" \
+                22 75 14 \
+                "" "━━━ CORE MODES (Recommended) ━━━" \
+                "1" "⭐ Pair Programming (Driver/Navigator)" \
+                "2" "⭐ Code Review (Author/Reviewer)" \
+                "3" "⭐ Debug Session (Reporter/Debugger)" \
+                "4" "⭐ Brainstorm (Free-form Ideas)" \
+                "" "━━━ LEGACY MODES (Compatibility) ━━━" \
+                "5" "Debate (Structured Discussion)" \
+                "6" "Teaching (Expert/Learner)" \
+                "7" "Consensus (Agreement Required)" \
+                "8" "Competition (Best Solution)" \
+                "" "" \
+                "9" "← Back to Main Menu" \
                 2> "$TEMP_FILE"
 
         local choice=$?
@@ -236,11 +276,14 @@ modes_menu() {
 
         case $(cat "$TEMP_FILE") in
             1) start_pair_programming ;;
-            2) start_debate ;;
-            3) start_teaching ;;
-            4) start_consensus ;;
-            5) start_competition ;;
-            6) return ;;
+            2) start_code_review ;;
+            3) start_debug ;;
+            4) start_brainstorm ;;
+            5) start_debate ;;
+            6) start_teaching ;;
+            7) start_consensus ;;
+            8) start_competition ;;
+            9) return ;;
             *) return ;;
         esac
     done
@@ -678,11 +721,18 @@ show_help() {
     local help_text="AI AGENTS COLLABORATION SYSTEM - COMPREHENSIVE HELP
 
 COLLABORATION MODES:
-• Pair Programming - Driver/navigator roles with task switching
-• Debate - Structured discussion with position taking and rebuttals
-• Teaching - Expert guides learner through exercises and questions
-• Consensus - Both agents must agree on decisions with voting
-• Competition - Best solution wins with scoring and winner declaration
+
+CORE MODES (Recommended for Daily Use):
+• Pair Programming - Driver/navigator roles for building features together
+• Code Review - Systematic code review with author/reviewer workflow
+• Debug Session - Collaborative debugging with systematic 6-step process
+• Brainstorm - Free-form idea generation with 4-phase workflow
+
+LEGACY MODES (Kept for Compatibility):
+• Debate - Structured discussion with position taking
+• Teaching - Expert guides learner through exercises
+• Consensus - Agreement building with voting
+• Competition - Best solution wins with scoring
 
 fzf TOOLS (⭐ ENHANCED!):
 • Session Browser - Browse/restore sessions with live preview and metadata
