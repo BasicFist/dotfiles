@@ -100,5 +100,6 @@ else
 fi
 
 # Attach to session
+export KITTY_AI_SESSION="$SESSION"
 notify_title "🔗 Attaching to AI agents: $SESSION" 1
 exec tmux attach -t "$SESSION"
