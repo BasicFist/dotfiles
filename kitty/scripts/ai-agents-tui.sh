@@ -7,22 +7,23 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Source configuration management first
-if [[ ! -f "${SCRIPT_DIR}/lib/config.sh" ]]; then
-    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/config.sh" >&2
-    echo "Please ensure the AI Agents scripts are properly installed." >&2
-    exit 1
-fi
-source "${SCRIPT_DIR}/lib/config.sh"
+cd "$SCRIPT_DIR"
 
 # Source common utilities next to access validation functions
-if [[ ! -f "${SCRIPT_DIR}/lib/common.sh" ]]; then
-    echo "ERROR: Required file not found: ${SCRIPT_DIR}/lib/common.sh" >&2
+if [[ ! -f "lib/common.sh" ]]; then
+    echo "ERROR: Required file not found: lib/common.sh" >&2
     echo "Please ensure the AI Agents scripts are properly installed." >&2
     exit 1
 fi
-source "${SCRIPT_DIR}/lib/common.sh"
+source "lib/common.sh"
+
+# Source configuration management first
+if [[ ! -f "lib/config.sh" ]]; then
+    echo "ERROR: Required file not found: lib/config.sh" >&2
+    echo "Please ensure the AI Agents scripts are properly installed." >&2
+    exit 1
+fi
+source "lib/config.sh"
 
 # Source progress feedback utilities
 if [[ ! -f "${SCRIPT_DIR}/lib/progress.sh" ]]; then
@@ -68,7 +69,7 @@ if [[ -f "${SCRIPT_DIR}/lib/dependencies.sh" ]]; then
 fi
 
 # Use the session from configuration
-SESSION="$KITTY_AI_SESSION"
+SESSION="${KITTY_AI_SESSION:-default-session}"
 
 # Detect available dialog tool
 if command -v dialog &> /dev/null; then
@@ -112,6 +113,8 @@ get_input() {
     local default="${3:-}"
 
     $DIALOG --title "$title" --inputbox "$prompt" 10 60 "$default" 2> "$TEMP_FILE"
+    sleep 0.1
+    cat "$TEMP_FILE" > "tui_input.log"
 
     if [[ $? -eq 0 ]]; then
         cat "$TEMP_FILE"
@@ -1158,7 +1161,7 @@ main_menu() {
             subtitle="Active Mode: ${active_mode^^} | Choose an option:"
         fi
 
-        $DIALOG --title "AI Agents Management" \
+        $DIALOG --stdout --and-widget --title "AI Agents Management" \
                 --menu "$subtitle" \
                 24 75 16 \
                 "0" "📊 Dashboard (Quick Overview & Stats)" \

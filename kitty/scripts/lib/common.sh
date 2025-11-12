@@ -21,8 +21,8 @@ validate_path() {
     local abs_path
     abs_path="$(realpath -q "$path" 2>/dev/null)" || return 1
 
-    # Ensure path is under expected root (HOME or /tmp for ai-agents)
-    if [[ "$abs_path" != "$HOME"* && "$abs_path" != "/tmp/ai-agents"* ]]; then
+    # Ensure path is under expected root (HOME, /tmp for ai-agents, or /app for sandbox)
+    if [[ "$abs_path" != "$HOME"* && "$abs_path" != "/tmp/ai-agents"* && "$abs_path" != "/app"* ]]; then
         return 1
     fi
 
