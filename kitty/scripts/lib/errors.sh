@@ -82,42 +82,9 @@ sanitize_input() {
     echo "$sanitized"
 }
 
-# Validate file paths to prevent directory traversal
-validate_path() {
-    local path="$1"
-    local base_dir="${2:-$HOME}"
-    
-    # Resolve to absolute path
-    local abs_path
-    if [[ "$path" == /* ]]; then
-        abs_path="$path"
-    else
-        abs_path="$(realpath "$base_dir/$path" 2>/dev/null)" || {
-            log_error "Invalid path: $path"
-            return 1
-        }
-    fi
-    
-    # Check if path is within allowed directory
-    if [[ ! "$abs_path" =~ ^"$base_dir" ]]; then
-        log_error "Path traversal attempt detected: $path"
-        return 1
-    fi
-    
-    # Check if file exists (if required)
-    if [[ "${3:-}" == "must_exist" ]] && [[ ! -e "$abs_path" ]]; then
-        log_error "File not found: $abs_path"
-        return 1
-    fi
-    
-    echo "$abs_path"
-    return 0
-}
-
 # Export functions
 export -f log_error
 export -f log_warning
 export -f log_info
 export -f safe_exit
 export -f sanitize_input
-export -f validate_path
