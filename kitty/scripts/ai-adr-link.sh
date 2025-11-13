@@ -1,153 +1,123 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════
-# ADR Management - Link Related Architecture Decision Records
+# ADR (Architecture Decision Record) Linker
 # ═══════════════════════════════════════════════════════════
+# Links ADRs by status (e.g., supersedes, amends)
 
 set -euo pipefail
 
-# Source required libraries
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
 source "${SCRIPT_DIR}/lib/errors.sh"
 
-# Configuration
-ADR_DIR="${AI_AGENTS_KB_DECISIONS:-$HOME/.ai-agents/knowledge/decisions}"
+ADR_DIR="${ADR_DIR:-${HOME}/.ai-agents/knowledge/decisions}"
 
-usage() {
-    cat <<EOF
-Usage: ai-adr-link.sh ADR1 ADR2 [RELATIONSHIP]
+# ═══════════════════════════════════════════════════════════
+# Helper Functions
+# ═══════════════════════════════════════════════════════════
 
-Create a bidirectional link between two ADRs.
-
-ARGUMENTS:
-  ADR1          First ADR number (e.g., 0001 or 1)
-  ADR2          Second ADR number (e.g., 0005 or 5)
-  RELATIONSHIP  Link type (optional, default: "relates to")
-
-RELATIONSHIP TYPES:
-  relates-to    - General relationship (default)
-  depends-on    - ADR1 depends on ADR2
-  conflicts     - ADR1 conflicts with ADR2
-  extends       - ADR1 extends ADR2
-
-EFFECTS:
-  - Adds ADR2 to ADR1's "Related Decisions" section
-  - Adds ADR1 to ADR2's "Related Decisions" section
-  - Bidirectional link maintained
-
-EXAMPLES:
-  # Simple link
-  ai-adr-link.sh 1 5
-
-  # Dependency link
-  ai-adr-link.sh 3 2 depends-on
-
-EOF
-}
-
-# Find ADR file by number
-find_adr_file() {
+find_adr_by_number() {
     local adr_num="$1"
-    local padded=$(printf "%04d" "$adr_num" 2>/dev/null || echo "$adr_num")
-    local pattern="$ADR_DIR/ADR-${padded}*.md"
-    local files=($pattern)
+    local padded
+    padded=$(printf "%04d" "$adr_num" 2>/dev/null || echo "$adr_num")
+    local pattern="${ADR_DIR}/ADR-${padded}-*.md"
 
-    if [[ ${#files[@]} -eq 0 ]] || [[ ! -f "${files[0]}" ]]; then
-        error_color "❌ ADR-$padded not found"
-        return 1
+    local files=()
+    readarray -t files < <(find "$ADR_DIR" -type f -name "ADR-${padded}-*.md")
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        error_exit "ADR with number $adr_num not found."
+    elif [[ ${#files[@]} -gt 1 ]]; then
+        error_exit "Multiple ADRs found for number $adr_num. Please resolve manually."
     fi
 
     echo "${files[0]}"
 }
 
-# Get ADR number and title
 get_adr_info() {
     local filepath="$1"
-    local num=$(basename "$filepath" | sed 's/ADR-\([0-9]*\).*/\1/')
-    local title=$(grep "^# ADR-" "$filepath" | head -1 | sed 's/.*: //')
+    if [[ ! -f "$filepath" ]]; then
+        echo "unknown|Untitled"
+        return
+    fi
+    local num
+    num=$(basename "$filepath" | sed 's/ADR-\([0-9]*\).*/\1/')
+    local title
+    title=$(grep "^# ADR-" "$filepath" | head -1 | sed 's/.*: //')
     echo "$num|$title"
 }
 
-# Add related decision
-add_related_decision() {
-    local filepath="$1"
-    local related_num="$2"
-    local related_title="$3"
-    local relationship="$4"
+# ═══════════════════════════════════════════════════════════
+# Main Logic
+# ═══════════════════════════════════════════════════════════
 
-    # Check if already linked
-    if grep -q "ADR-$related_num" "$filepath"; then
-        warn_color "⚠️  Link already exists in $(basename "$filepath")"
-        return 0
-    fi
+link_adrs() {
+    local source_num="$1"
+    local link_type="$2"
+    local target_num="$3"
 
-    # Find "Related Decisions" section and add entry
-    if grep -q "^## Related Decisions" "$filepath"; then
-        # Add after the section header
-        sed -i.bak "/^## Related Decisions$/a - ADR-$related_num: $related_title ($relationship)" "$filepath"
-        rm -f "${filepath}.bak"
+    local source_file
+    source_file=$(find_adr_by_number "$source_num")
+    local target_file
+    target_file=$(find_adr_by_number "$target_num")
+
+    local info1
+    info1=$(get_adr_info "$source_file")
+    local info2
+    info2=$(get_adr_info "$target_file")
+
+    local num1
+    num1=$(echo "$info1" | cut -d'|' -f1)
+    local title1
+    title1=$(echo "$info1" | cut -d'|' -f2)
+    local num2
+    num2=$(echo "$info2" | cut -d'|' -f1)
+    local title2
+    title2=$(echo "$info2" | cut -d'|' -f2)
+
+    local link_text
+    link_text="* This ADR ${link_type} [ADR-${num2}: ${title2}]($(basename "$target_file"))"
+
+    # Add link to source file
+    if grep -q "Status" "$source_file"; then
+        sed -i "/Status/a \\$link_text" "$source_file"
     else
-        error_color "❌ Related Decisions section not found"
-        return 1
+        echo -e "\n$link_text" >> "$source_file"
     fi
+
+    success_color "Linked ADR-$num1 to ADR-$num2 ($link_type)."
 }
 
-# Main function
+show_help() {
+    cat << EOF
+ADR Linker
+
+Usage: $(basename "$0") <source_adr> <link_type> <target_adr>
+
+Arguments:
+  source_adr   Number of the source ADR.
+  link_type    Type of link (e.g., 'supersedes', 'amends', 'relates to').
+  target_adr   Number of the target ADR.
+
+Example:
+  $(basename "$0") 5 'supersedes' 2
+EOF
+}
+
+# Entry point
 main() {
-    if [[ $# -lt 2 ]]; then
-        usage
-        exit 1
+    if [[ "$#" -ne 3 || "$1" == "--help" ]]; then
+        show_help
+        exit 0
     fi
 
-    local adr1="$1"
-    local adr2="$2"
-    local relationship="${3:-relates-to}"
-
-    # Validate relationship
-    case "$relationship" in
-        relates-to|depends-on|conflicts|extends)
-            ;;
-        *)
-            warn_color "⚠️  Unknown relationship: $relationship (using 'relates-to')"
-            relationship="relates-to"
-            ;;
-    esac
-
-    # Find both files
-    local file1
-    local file2
-
-    if ! file1=$(find_adr_file "$adr1"); then
-        exit 1
+    if [[ ! -d "$ADR_DIR" ]]; then
+        error_exit "ADR directory not found at: $ADR_DIR"
     fi
 
-    if ! file2=$(find_adr_file "$adr2"); then
-        exit 1
-    fi
-
-    # Get info
-    local info1=$(get_adr_info "$file1")
-    local info2=$(get_adr_info "$file2")
-
-    local num1=$(echo "$info1" | cut -d'|' -f1)
-    local title1=$(echo "$info1" | cut -d'|' -f2)
-    local num2=$(echo "$info2" | cut -d'|' -f1)
-    local title2=$(echo "$info2" | cut -d'|' -f2)
-
-    info_color "Linking ADR-$num1 ↔ ADR-$num2 ($relationship)"
-
-    # Create bidirectional links
-    add_related_decision "$file1" "$num2" "$title2" "$relationship"
-    add_related_decision "$file2" "$num1" "$title1" "$relationship"
-
-    success_color ""
-    success_color "✅ Link created successfully!"
-    info_color "   ADR-$num1: $title1"
-    info_color "   ADR-$num2: $title2"
-    info_color "   Relationship: $relationship"
+    link_adrs "$1" "$2" "$3"
 }
 
-# Run if executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
 fi

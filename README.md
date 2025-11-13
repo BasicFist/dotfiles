@@ -179,14 +179,16 @@ Ctrl+Alt+M
 ```
 
 **Menu Options**:
-1. Start Collaboration Mode (5 modes available)
-2. fzf Tools (session browser, KB search, pane switcher, mode launcher)
-3. Session Management (save, restore, browse)
-4. Knowledge Base (docs, lessons, search)
-5. Launch Tmux Session
-6. Setup TPM
-7. System Status
-8. Help & Documentation
+1. Dashboard (Quick Overview & Stats)
+2. Start Collaboration Mode (5 modes available)
+3. fzf Tools (Session/KB/Pane/Mode)
+4. Session Management
+5. Knowledge Base
+6. Configuration Management
+7. Launch Tmux Session
+8. Setup TPM (Tmux Plugin Manager)
+9. System Status (Detailed)
+10. Help & Documentation
 
 **Quick Mode Launch**:
 ```bash

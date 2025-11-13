@@ -138,7 +138,8 @@ launch_in_terminal() {
     fi
 
     # Wrap command with visibility improvements
-    local wrapped_cmd="$cmd; echo ''; echo '════════════════════════════════════════'; echo '✅ Mode initialized - shell ready for commands'; echo '════════════════════════════════════════'; echo ''; exec bash"
+    local wrapped_cmd
+    wrapped_cmd="$cmd; echo ''; echo '════════════════════════════════════════'; echo '✅ Mode initialized - shell ready for commands'; echo '════════════════════════════════════════'; echo ''; exec bash"
 
     if [[ -n "${TMUX:-}" ]]; then
         # Running in tmux - create new window with persistent shell
@@ -158,33 +159,42 @@ launch_in_terminal() {
 # ═══════════════════════════════════════════════════════════
 
 start_pair_programming() {
-    local driver=$(get_input "Pair Programming" "Driver agent:" "Agent1") || return
-    local navigator=$(get_input "Pair Programming" "Navigator agent:" "Agent2") || return
+    local driver
+    driver=$(get_input "Pair Programming" "Driver agent:" "Agent1") || return
+    local navigator
+    navigator=$(get_input "Pair Programming" "Navigator agent:" "Agent2") || return
 
     launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh pair $driver $navigator"
     show_message "Success" "Pair programming mode started!\n\nDriver: $driver\nNavigator: $navigator"
 }
 
 start_code_review() {
-    local author=$(get_input "Code Review" "Author (submits code):" "Agent1") || return
-    local reviewer=$(get_input "Code Review" "Reviewer (provides feedback):" "Agent2") || return
-    local file=$(get_input "Code Review" "File/description (optional):" "") || return
+    local author
+    author=$(get_input "Code Review" "Author (submits code):" "Agent1") || return
+    local reviewer
+    reviewer=$(get_input "Code Review" "Reviewer (provides feedback):" "Agent2") || return
+    local file
+    file=$(get_input "Code Review" "File/description (optional):" "") || return
 
     launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh code-review \"$author\" \"$reviewer\" \"$file\""
     show_message "Success" "Code review mode started!\n\nAuthor: $author\nReviewer: $reviewer\nTarget: ${file:-unspecified}"
 }
 
 start_debug() {
-    local reporter=$(get_input "Debug Session" "Bug Reporter:" "Agent1") || return
-    local debugger=$(get_input "Debug Session" "Debugger (helps solve):" "Agent2") || return
-    local bug_desc=$(get_input "Debug Session" "Bug description (optional):" "") || return
+    local reporter
+    reporter=$(get_input "Debug Session" "Bug Reporter:" "Agent1") || return
+    local debugger
+    debugger=$(get_input "Debug Session" "Debugger (helps solve):" "Agent2") || return
+    local bug_desc
+    bug_desc=$(get_input "Debug Session" "Bug description (optional):" "") || return
 
     launch_in_terminal "${SCRIPT_DIR}/ai-mode-start.sh debug \"$reporter\" \"$debugger\" \"$bug_desc\""
     show_message "Success" "Debug session started!\n\nReporter: $reporter\nDebugger: $debugger\nBug: ${bug_desc:-unspecified}"
 }
 
 start_brainstorm() {
-    local topic=$(get_input "Brainstorm Session" "Topic to brainstorm:") || return
+    local topic
+    topic=$(get_input "Brainstorm Session" "Topic to brainstorm:") || return
 
     if [[ -z "$topic" ]]; then
         show_error "Topic cannot be empty!"
@@ -200,7 +210,8 @@ start_brainstorm() {
 # ═══════════════════════════════════════════════════════════
 
 start_debate() {
-    local topic=$(get_input "Debate Mode" "Debate topic:") || return
+    local topic
+    topic=$(get_input "Debate Mode" "Debate topic:") || return
 
     if [[ -z "$topic" ]]; then
         show_error "Topic cannot be empty!"
@@ -212,9 +223,12 @@ start_debate() {
 }
 
 start_teaching() {
-    local expert=$(get_input "Teaching Mode" "Expert agent:" "Agent1") || return
-    local learner=$(get_input "Teaching Mode" "Learner agent:" "Agent2") || return
-    local topic=$(get_input "Teaching Mode" "Topic to teach:") || return
+    local expert
+    expert=$(get_input "Teaching Mode" "Expert agent:" "Agent1") || return
+    local learner
+    learner=$(get_input "Teaching Mode" "Learner agent:" "Agent2") || return
+    local topic
+    topic=$(get_input "Teaching Mode" "Topic to teach:") || return
 
     if [[ -z "$topic" ]]; then
         show_error "Topic cannot be empty!"
@@ -226,7 +240,8 @@ start_teaching() {
 }
 
 start_consensus() {
-    local decision=$(get_input "Consensus Mode" "Decision topic:") || return
+    local decision
+    decision=$(get_input "Consensus Mode" "Decision topic:") || return
 
     if [[ -z "$decision" ]]; then
         show_error "Decision topic cannot be empty!"
@@ -238,8 +253,10 @@ start_consensus() {
 }
 
 start_competition() {
-    local challenge=$(get_input "Competition Mode" "Challenge:") || return
-    local time_limit=$(get_input "Competition Mode" "Time limit (minutes):" "30") || return
+    local challenge
+    challenge=$(get_input "Competition Mode" "Challenge:") || return
+    local time_limit
+    time_limit=$(get_input "Competition Mode" "Time limit (minutes):" "30") || return
 
     if [[ -z "$challenge" ]]; then
         show_error "Challenge cannot be empty!"
@@ -253,17 +270,26 @@ start_competition() {
 modes_menu() {
     while true; do
         # Get usage stats for each mode
-        local pair_uses=$(get_mode_usage "pair-programming")
-        local review_uses=$(get_mode_usage "code-review")
-        local debug_uses=$(get_mode_usage "debug")
-        local brainstorm_uses=$(get_mode_usage "brainstorm")
-        local debate_uses=$(get_mode_usage "debate")
-        local teach_uses=$(get_mode_usage "teaching")
-        local consensus_uses=$(get_mode_usage "consensus")
-        local compete_uses=$(get_mode_usage "competition")
+        local pair_uses
+        pair_uses=$(get_mode_usage "pair-programming")
+        local review_uses
+        review_uses=$(get_mode_usage "code-review")
+        local debug_uses
+        debug_uses=$(get_mode_usage "debug")
+        local brainstorm_uses
+        brainstorm_uses=$(get_mode_usage "brainstorm")
+        local debate_uses
+        debate_uses=$(get_mode_usage "debate")
+        local teach_uses
+        teach_uses=$(get_mode_usage "teaching")
+        local consensus_uses
+        consensus_uses=$(get_mode_usage "consensus")
+        local compete_uses
+        compete_uses=$(get_mode_usage "competition")
 
         # Get recent mode for quick resume
-        local recent_mode=$(get_recent_mode)
+        local recent_mode
+        recent_mode=$(get_recent_mode)
         local quick_resume=""
         local quick_resume_num=""
 
@@ -317,7 +343,9 @@ modes_menu() {
             return
         fi
 
-        case $(cat "$TEMP_FILE") in
+        local menu_choice
+        menu_choice=$(cat "$TEMP_FILE")
+        case "$menu_choice" in
             0)
                 # Quick resume - launch the recent mode
                 case "$recent_mode" in
@@ -375,8 +403,10 @@ view_current_mode() {
     fi
 
     # Read mode state
-    local state=$(cat "$mode_file" | jq -r '.')
-    local formatted=$(echo "$state" | jq -r '
+    local state
+    state=$(cat "$mode_file" | jq -r '.')
+    local formatted
+    formatted=$(echo "$state" | jq -r '
         "Mode: \(.mode // "unknown")\n" +
         "Started: \(.started // "unknown")\n" +
         "---\n" +
@@ -393,8 +423,10 @@ view_current_mode() {
 }
 
 save_session() {
-    local name=$(get_input "Save Session" "Session name:" "session-$(date +%Y%m%d-%H%M)") || return
-    local description=$(get_input "Save Session" "Description:") || return
+    local name
+    name=$(get_input "Save Session" "Session name:" "session-$(date +%Y%m%d-%H%M)") || return
+    local description
+    description=$(get_input "Save Session" "Description:") || return
 
     if [[ -z "$name" ]]; then
         show_error "Session name cannot be empty!"
@@ -419,7 +451,8 @@ list_sessions() {
 
     for dir in "$snapshot_dir"/*/; do
         if [[ -d "$dir" ]]; then
-            local name=$(basename "$dir")
+            local name
+            name=$(basename "$dir")
             local meta_file="${dir}metadata.json"
             local desc="No description"
 
@@ -444,7 +477,8 @@ list_sessions() {
             2> "$TEMP_FILE"
 
     if [[ $? -eq 0 ]]; then
-        local choice=$(cat "$TEMP_FILE")
+        local choice
+        choice=$(cat "$TEMP_FILE")
         # Show session details would go here
         show_message "Session Browser" "Session details viewer - implementation pending"
     fi
@@ -467,7 +501,9 @@ sessions_menu() {
             return
         fi
 
-        case $(cat "$TEMP_FILE") in
+        local menu_choice
+        menu_choice=$(cat "$TEMP_FILE")
+        case "$menu_choice" in
             1) view_current_mode ;;
             2) save_session ;;
             3) list_sessions ;;
@@ -497,7 +533,8 @@ add_kb_entry() {
         return
     fi
 
-    local type_choice=$(cat "$TEMP_FILE")
+    local type_choice
+    type_choice=$(cat "$TEMP_FILE")
     local type=""
 
     case $type_choice in
@@ -508,9 +545,12 @@ add_kb_entry() {
         *) return ;;
     esac
 
-    local title=$(get_input "Add $type" "Title:") || return
-    local content=$(get_input "Add $type" "Content:") || return
-    local tags=$(get_input "Add $type" "Tags (comma-separated):" "") || return
+    local title
+    title=$(get_input "Add $type" "Title:") || return
+    local content
+    content=$(get_input "Add $type" "Content:") || return
+    local tags
+    tags=$(get_input "Add $type" "Tags (comma-separated):" "") || return
 
     if [[ -z "$title" || -z "$content" ]]; then
         show_error "Title and content cannot be empty!"
@@ -522,13 +562,15 @@ add_kb_entry() {
 }
 
 search_kb() {
-    local query=$(get_input "Search Knowledge Base" "Search query:") || return
+    local query
+    query=$(get_input "Search Knowledge Base" "Search query:") || return
 
     if [[ -z "$query" ]]; then
         return
     fi
 
-    local results=$("${SCRIPT_DIR}/ai-kb-search.sh" "$query")
+    local results
+    results=$("${SCRIPT_DIR}/ai-kb-search.sh" "$query")
 
     if [[ -z "$results" ]]; then
         show_message "No Results" "No entries found matching: $query"
@@ -538,9 +580,12 @@ search_kb() {
 }
 
 add_lesson() {
-    local problem=$(get_input "Add Lesson" "Problem/Challenge:") || return
-    local solution=$(get_input "Add Lesson" "Solution/Learning:") || return
-    local tags=$(get_input "Add Lesson" "Tags (comma-separated):" "") || return
+    local problem
+    problem=$(get_input "Add Lesson" "Problem/Challenge:") || return
+    local solution
+    solution=$(get_input "Add Lesson" "Solution/Learning:") || return
+    local tags
+    tags=$(get_input "Add Lesson" "Tags (comma-separated):" "") || return
 
     if [[ -z "$problem" || -z "$solution" ]]; then
         show_error "Problem and solution cannot be empty!"
@@ -568,7 +613,9 @@ kb_menu() {
             return
         fi
 
-        case $(cat "$TEMP_FILE") in
+        local menu_choice
+        menu_choice=$(cat "$TEMP_FILE")
+        case "$menu_choice" in
             1) add_kb_entry ;;
             2) search_kb ;;
             3) add_lesson ;;
@@ -654,7 +701,9 @@ fzf_tools_menu() {
             return
         fi
 
-        case $(cat "$TEMP_FILE") in
+        local menu_choice
+        menu_choice=$(cat "$TEMP_FILE")
+        case "$menu_choice" in
             1) launch_session_browser ;;
             2) launch_kb_search ;;
             3) launch_pane_switcher ;;
@@ -693,23 +742,29 @@ config_menu() {
             return
         fi
 
-        case $(cat "$TEMP_FILE") in
-            1) 
+        local menu_choice
+        menu_choice=$(cat "$TEMP_FILE")
+        case "$menu_choice" in
+            1)
                 # Show config in dialog
-                local config_output=$("${SCRIPT_DIR}/ai-config.sh" show 2>&1)
+                local config_output
+                config_output=$("${SCRIPT_DIR}/ai-config.sh" show 2>&1)
                 echo "$config_output" | $DIALOG --title "Current Configuration" --programbox $HEIGHT $WIDTH
                 ;;
             2)
                 if "${SCRIPT_DIR}/ai-config.sh" validate 2>&1 | grep -q "Configuration is valid"; then
                     show_message "✅ Validation" "Configuration is valid!"
                 else
-                    local error_output=$("${SCRIPT_DIR}/ai-config.sh" validate 2>&1)
+                    local error_output
+                    error_output=$("${SCRIPT_DIR}/ai-config.sh" validate 2>&1)
                     echo "$error_output" | $DIALOG --title "❌ Validation Errors" --programbox $HEIGHT $WIDTH
                 fi
                 ;;
             3)
-                local timestamp=$(date +%Y%m%d-%H%M%S)
-                local backup_result=$("${SCRIPT_DIR}/ai-config.sh" backup "backup-$timestamp.conf" 2>&1)
+                local timestamp
+                timestamp=$(date +%Y%m%d-%H%M%S)
+                local backup_result
+                backup_result=$("${SCRIPT_DIR}/ai-config.sh" backup "backup-$timestamp.conf" 2>&1)
                 show_message "Backup Created" "Configuration backed up successfully!\n\n$backup_result"
                 ;;
             4)
@@ -717,15 +772,16 @@ config_menu() {
                 local backup_dir="${AI_AGENTS_CONFIG_DIR:-$HOME/.ai-agents/config}"
                 local backups=()
                 local count=1
-                
+
                 for backup in "$backup_dir"/backup-*.conf; do
                     if [[ -f "$backup" ]]; then
-                        local name=$(basename "$backup")
+                        local name
+                        name=$(basename "$backup")
                         backups+=("$count" "$name")
                         ((count++))
                     fi
                 done
-                
+
                 if [[ ${#backups[@]} -eq 0 ]]; then
                     show_message "No Backups" "No configuration backups found."
                 else
@@ -735,13 +791,15 @@ config_menu() {
                             "${backups[@]}" \
                             "99" "← Back to Config Menu" \
                             2> "$TEMP_FILE"
-                    
+
                     if [[ $? -eq 0 ]]; then
-                        local selection=$(cat "$TEMP_FILE")
+                        local selection
+                        selection=$(cat "$TEMP_FILE")
                         if [[ "$selection" != "99" ]]; then
                             local selected_backup="${backups[$((selection * 2 - 2))]}"
                             if confirm "Restore configuration from $selected_backup?"; then
-                                local restore_result=$("${SCRIPT_DIR}/ai-config.sh" restore "$selected_backup" 2>&1)
+                                local restore_result
+                                restore_result=$("${SCRIPT_DIR}/ai-config.sh" restore "$selected_backup" 2>&1)
                                 show_message "✅ Restore Complete" "Configuration restored!\n\n$restore_result"
                             fi
                         fi
@@ -902,7 +960,8 @@ system_status() {
     # Check TPM
     if [[ -d "${HOME}/.tmux/plugins/tpm" ]]; then
         # Count plugins excluding TPM itself
-        local plugin_count=$(find "${HOME}/.tmux/plugins" -maxdepth 1 -type d ! -name 'plugins' ! -name 'tpm' 2>/dev/null | tail -n +2 | wc -l)
+        local plugin_count
+        plugin_count=$(find "${HOME}/.tmux/plugins" -maxdepth 1 -type d ! -name 'plugins' ! -name 'tpm' 2>/dev/null | tail -n +2 | wc -l)
         status+="✅ TPM (Plugin Manager): INSTALLED\n"
         status+="   • Total plugins: $plugin_count/16 configured\n"
 
@@ -951,13 +1010,15 @@ system_status() {
 
         # Check session persistence
         if [[ -d "${HOME}/.tmux/resurrect" ]]; then
-            local save_count=$(ls -1 "${HOME}/.tmux/resurrect"/*.txt 2>/dev/null | wc -l)
+            local save_count
+            save_count=$(ls -1 "${HOME}/.tmux/resurrect"/*.txt 2>/dev/null | wc -l)
             status+="   • Session saves: $save_count\n"
         fi
 
         # Check logging directory
         if [[ -d "${HOME}/tmux-logs" ]]; then
-            local log_count=$(ls -1 "${HOME}/tmux-logs"/*.log 2>/dev/null | wc -l)
+            local log_count
+            log_count=$(ls -1 "${HOME}/tmux-logs"/*.log 2>/dev/null | wc -l)
             if [[ $log_count -gt 0 ]]; then
                 status+="   • Pane logs: $log_count files\n"
             fi
@@ -970,9 +1031,11 @@ system_status() {
     # Check active mode
     local mode_dir="/tmp/ai-mode-${SESSION}"
     if [[ -d "$mode_dir" ]] && [[ -n "$(ls -A "$mode_dir" 2>/dev/null)" ]]; then
-        local mode_file=$(ls "$mode_dir"/*.json 2>/dev/null | head -1)
+        local mode_file
+        mode_file=$(ls "$mode_dir"/*.json 2>/dev/null | head -1)
         if [[ -f "$mode_file" ]]; then
-            local mode=$(jq -r '.mode // "unknown"' "$mode_file")
+            local mode
+            mode=$(jq -r '.mode // "unknown"' "$mode_file")
             status+="✅ Active mode: ${mode^^}\n"
         else
             status+="ℹ️  Active mode: NONE\n"
@@ -984,9 +1047,12 @@ system_status() {
     # Check KB
     local kb_dir="${HOME}/.ai-agents"
     if [[ -d "$kb_dir" ]]; then
-        local doc_count=$(find "$kb_dir/knowledge/docs" -name "*.md" 2>/dev/null | wc -l)
-        local lesson_count=$(find "$kb_dir/lessons" -name "*.md" 2>/dev/null | wc -l)
-        local session_count=$(find "$kb_dir/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+        local doc_count
+        doc_count=$(find "$kb_dir/knowledge/docs" -name "*.md" 2>/dev/null | wc -l)
+        local lesson_count
+        lesson_count=$(find "$kb_dir/lessons" -name "*.md" 2>/dev/null | wc -l)
+        local session_count
+        session_count=$(find "$kb_dir/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
 
         status+="✅ Knowledge base: INITIALIZED\n"
         status+="   • Documents: $doc_count\n"
@@ -1031,14 +1097,18 @@ get_mode_stats_summary() {
     fi
 
     # Get total uses across all modes
-    local total_uses=$(jq '[.[].usage_count] | add // 0' "$stats_file" 2>/dev/null || echo "0")
+    local total_uses
+    total_uses=$(jq '[.[].usage_count] | add // 0' "$stats_file" 2>/dev/null || echo "0")
 
     # Get most used mode
-    local most_used=$(jq -r 'to_entries | max_by(.value.usage_count) | .key // "none"' "$stats_file" 2>/dev/null || echo "none")
-    local most_used_count=$(jq -r 'to_entries | max_by(.value.usage_count) | .value.usage_count // 0' "$stats_file" 2>/dev/null || echo "0")
+    local most_used
+    most_used=$(jq -r 'to_entries | max_by(.value.usage_count) | .key // "none"' "$stats_file" 2>/dev/null || echo "none")
+    local most_used_count
+    most_used_count=$(jq -r 'to_entries | max_by(.value.usage_count) | .value.usage_count // 0' "$stats_file" 2>/dev/null || echo "0")
 
     # Get recently used mode
-    local recent=$(jq -r 'to_entries | map(select(.value.last_used != null)) | max_by(.value.last_used) | .key // "none"' "$stats_file" 2>/dev/null || echo "none")
+    local recent
+    recent=$(jq -r 'to_entries | map(select(.value.last_used != null)) | max_by(.value.last_used) | .key // "none"' "$stats_file" 2>/dev/null || echo "none")
 
     echo "$total_uses|$most_used|$most_used_count|$recent"
 }
@@ -1047,7 +1117,8 @@ get_mode_stats_summary() {
 get_active_mode() {
     local mode_dir="/tmp/ai-mode-${SESSION}"
     if [[ -d "$mode_dir" ]] && [[ -n "$(ls -A "$mode_dir" 2>/dev/null)" ]]; then
-        local mode_file=$(ls "$mode_dir"/*.json 2>/dev/null | head -1)
+        local mode_file
+        mode_file=$(ls "$mode_dir"/*.json 2>/dev/null | head -1)
         if [[ -f "$mode_file" ]]; then
             jq -r '.mode // "none"' "$mode_file" 2>/dev/null || echo "none"
             return
@@ -1084,12 +1155,18 @@ get_recent_mode() {
 # Dashboard with quick stats and actions
 show_dashboard() {
     # Get statistics
-    local mode_stats=$(get_mode_stats_summary)
-    local total_uses=$(echo "$mode_stats" | cut -d'|' -f1)
-    local most_used=$(echo "$mode_stats" | cut -d'|' -f2)
-    local most_used_count=$(echo "$mode_stats" | cut -d'|' -f3)
-    local recent_mode=$(echo "$mode_stats" | cut -d'|' -f4)
-    local active_mode=$(get_active_mode)
+    local mode_stats
+    mode_stats=$(get_mode_stats_summary)
+    local total_uses
+    total_uses=$(echo "$mode_stats" | cut -d'|' -f1)
+    local most_used
+    most_used=$(echo "$mode_stats" | cut -d'|' -f2)
+    local most_used_count
+    most_used_count=$(echo "$mode_stats" | cut -d'|' -f3)
+    local recent_mode
+    recent_mode=$(echo "$mode_stats" | cut -d'|' -f4)
+    local active_mode
+    active_mode=$(get_active_mode)
 
     # Get KB stats
     local kb_dir="${HOME}/.ai-agents"
@@ -1152,7 +1229,8 @@ Press any key to continue...
 main_menu() {
     while true; do
         # Get dynamic status for subtitle
-        local active_mode=$(get_active_mode)
+        local active_mode
+        active_mode=$(get_active_mode)
         local subtitle="Choose an option:"
         if [[ "$active_mode" != "none" ]]; then
             subtitle="Active Mode: ${active_mode^^} | Choose an option:"
@@ -1181,7 +1259,9 @@ main_menu() {
             break
         fi
 
-        case $(cat "$TEMP_FILE") in
+        local menu_choice
+        menu_choice=$(cat "$TEMP_FILE")
+        case "$menu_choice" in
             0) show_dashboard ;;
             1) modes_menu ;;
             2) fzf_tools_menu ;;
