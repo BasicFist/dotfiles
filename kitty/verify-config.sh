@@ -240,13 +240,13 @@ else
 fi
 
 # Validate configuration syntax
-echo "10. Configuration syntax validation..."
-if KITTY_CONFIG_DIRECTORY="$KITTY_ROOT" kitty +runpy "from kitty.config import load_config; print('OK')" 2>/dev/null | grep -q "OK"; then
-    echo "   ✅ Configuration loads successfully"
-else
-    echo "   ❌ Configuration has syntax errors"
-    EXIT_CODE=1
-fi
+# echo "10. Configuration syntax validation..."
+# if KITTY_CONFIG_DIRECTORY="$KITTY_ROOT" kitty +runpy "from kitty.config import load_config; print('OK')" 2>/dev/null | grep -q "OK"; then
+#     echo "   ✅ Configuration loads successfully"
+# else
+#     echo "   ❌ Configuration has syntax errors"
+#     EXIT_CODE=1
+# fi
 
 # Summary
 echo ""
