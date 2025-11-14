@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/teaching.json"
+MODE_STATE="$AI_AGENTS_STATE_TEACHING"
 LEARNER="${1:-}"
 QUESTION="${2:-}"
 
@@ -35,7 +35,7 @@ jq '.questions_asked += 1' \
    "$MODE_STATE" > "${MODE_STATE}.tmp" && mv "${MODE_STATE}.tmp" "$MODE_STATE"
 
 # Present question
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 $(agent2_color "─────────────────────────────────────────")
 $(agent2_color " ❓ ${LEARNER} Asks:")

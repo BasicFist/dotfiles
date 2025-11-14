@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/debate.json"
+MODE_STATE="$AI_AGENTS_STATE_DEBATE"
 SOLUTION="${1:-}"
 
 if [[ ! -f "$MODE_STATE" ]]; then
@@ -36,7 +36,7 @@ DURATION=$(($(date +%s) - $(date -d "$STARTED" +%s)))
 MINUTES=$((DURATION / 60))
 
 # Announce consensus
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 $(success_color "═══════════════════════════════════════")
 $(success_color " 🤝 CONSENSUS REACHED!")

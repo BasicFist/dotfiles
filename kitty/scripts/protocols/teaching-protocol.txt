@@ -1,0 +1,34 @@
+═══════════════════════════════════════
+ Teaching Protocol
+═══════════════════════════════════════
+
+Expert Responsibilities:
+  • Explain concepts clearly
+  • Provide examples and analogies
+  • Check for understanding frequently
+  • Adapt depth and pace to the learner
+
+Learner Responsibilities:
+  • Ask clarifying questions
+  • Attempt exercises out loud
+  • Summarize takeaways in your own words
+  • Share areas that still feel fuzzy
+
+Flow:
+  1. Explain the concept
+  2. Explore examples together
+  3. Practice with an exercise
+  4. Check understanding
+  5. Mark concepts as mastered
+
+Commands:
+  • Explain: ai-teach-explain.sh "<concept>" "<explanation>"
+  • Question: ai-teach-question.sh <learner> "<question>"
+  • Exercise: ai-teach-exercise.sh "<exercise>" [difficulty]
+  • Check: ai-teach-check.sh <learner> "<summary>"
+  • Mastered: ai-teach-mastered.sh "<concept>"
+
+Goal:
+  • Bring the learner to confident mastery of the topic
+
+═══════════════════════════════════════

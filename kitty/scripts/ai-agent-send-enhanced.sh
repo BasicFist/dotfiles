@@ -6,12 +6,12 @@
 
 set -euo pipefail
 
-SHARED_FILE="/tmp/ai-agents-shared.txt"
-SESSION=${KITTY_AI_SESSION:-ai-agents}
-
-# Source color library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
+source "${SCRIPT_DIR}/lib/shared-state.sh"
+
+SESSION="$AI_AGENTS_SESSION"
 
 usage() {
     cat <<EOF
@@ -75,12 +75,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Format and write message
+ensure_shared_state_paths
+
 FORMATTED_MSG=$(format_message "$MSG_TYPE" "$AGENT_ID" "$MESSAGE")
-echo -e "$FORMATTED_MSG" >> "$SHARED_FILE"
+echo -e "$FORMATTED_MSG" >> "$AI_AGENTS_SHARED_FILE"
 
 # Also write plain text version for parsing
 TIMESTAMP=$(date '+%H:%M:%S')
-echo "[$TIMESTAMP] [$AGENT_ID] [$MSG_TYPE] $MESSAGE" >> "${SHARED_FILE}.log"
+echo "[$TIMESTAMP] [$AGENT_ID] [$MSG_TYPE] $MESSAGE" >> "${AI_AGENTS_SHARED_FILE}.log"
 
 # Desktop notification if requested
 if [[ "$DO_NOTIFY" == true ]]; then

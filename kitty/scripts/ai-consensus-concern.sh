@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/consensus.json"
+MODE_STATE="$AI_AGENTS_STATE_CONSENSUS"
 AGENT="${1:-}"
 CONCERN="${2:-}"
 
@@ -32,7 +32,7 @@ else
 fi
 
 # Present concern
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 ${AGENT_COLOR}▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼${RESET}
 ${AGENT_COLOR} ⚠️  ${AGENT} - Concern${RESET}

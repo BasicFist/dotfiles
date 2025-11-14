@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/consensus.json"
+MODE_STATE="$AI_AGENTS_STATE_CONSENSUS"
 REFINED_PROPOSAL="${1:-}"
 
 if [[ ! -f "$MODE_STATE" ]]; then
@@ -24,7 +24,7 @@ if [[ -z "$REFINED_PROPOSAL" ]]; then
 fi
 
 # Present refined proposal
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 $(shared_color "╔═══════════════════════════════════════╗")
 $(shared_color "║  🔄 REFINED PROPOSAL                  ║")

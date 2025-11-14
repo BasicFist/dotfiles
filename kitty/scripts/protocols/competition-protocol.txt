@@ -1,0 +1,35 @@
+═══════════════════════════════════════
+ Competition Protocol
+═══════════════════════════════════════
+
+Challenge:
+  • Defined when the mode starts
+  • Clarify requirements before coding
+
+Phase 1: Planning (5 min)
+  • Understand the problem thoroughly
+  • Sketch the architecture and strategy
+
+Phase 2: Implementation
+  • Build and test independently
+  • Optimize for performance and quality
+
+Phase 3: Submission (5 min)
+  • Submit final solution + explanation
+  • Highlight trade-offs and innovations
+
+Judging Criteria (25 points each):
+  • Correctness
+  • Performance
+  • Code Quality
+  • Innovation
+
+Commands:
+  • Submit: ai-compete-submit.sh <agent> "<solution>" "<explanation>"
+  • Score: ai-compete-score.sh <agent> <criterion> <points>
+  • Winner: ai-compete-winner.sh <agent> "<reason>"
+
+Goal:
+  • Friendly competition that surfaces the strongest approach
+
+═══════════════════════════════════════

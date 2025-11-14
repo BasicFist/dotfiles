@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/competition.json"
+MODE_STATE="$AI_AGENTS_STATE_COMPETITION"
 AGENT="${1:-}"
 SOLUTION_PATH="${2:-}"
 EXPLANATION="${3:-}"
@@ -48,7 +48,7 @@ else
 fi
 
 # Announce submission
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 ${AGENT_COLOR}▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓${RESET}
 ${AGENT_COLOR} 📤 ${AGENT} - Solution Submitted!${RESET}
@@ -77,7 +77,7 @@ AGENT2_SUB=$(jq -r '.submissions.Agent2' "$MODE_STATE")
 if [[ "$AGENT1_SUB" != "null" && "$AGENT2_SUB" != "null" ]]; then
     CHALLENGE=$(jq -r '.challenge' "$MODE_STATE")
 
-    cat >> /tmp/ai-agents-shared.txt <<EOF
+    cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 $(success_color "════════════════════════════════════════")
 $(success_color " ✅ Both solutions submitted!")
 $(success_color "════════════════════════════════════════")

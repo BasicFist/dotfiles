@@ -6,15 +6,13 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../lib/colors.sh"
+source "${SCRIPT_DIR}/../lib/mode-framework.sh"
+source "${SCRIPT_DIR}/../lib/constants.sh"
 
 DECISION="${1:-Decision not specified}"
-MODE_STATE="/tmp/ai-mode-${SESSION}/consensus.json"
 
-# Initialize mode
-cat > "$MODE_STATE" <<EOF
+STATE_JSON=$(cat <<EOF
 {
   "mode": "consensus",
   "started": "$(date -Iseconds)",
@@ -28,55 +26,30 @@ cat > "$MODE_STATE" <<EOF
   "final_decision": null
 }
 EOF
+)
 
-# Clear shared communication
-> /tmp/ai-agents-shared.txt
+if ! mode_init "consensus" "$STATE_JSON" "protocols/consensus-protocol.txt"; then
+    error_color "❌ Failed to initialize consensus mode"
+    exit 1
+fi
 
-# Announce mode start
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "🤝 Consensus Mode Started" --notify
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "   Decision: $DECISION"
-echo "" >> /tmp/ai-agents-shared.txt
-
-# Show protocol
-cat >> /tmp/ai-agents-shared.txt <<EOF
-$(success_color "═══════════════════════════════════════")
-$(success_color " Consensus Building Protocol")
-$(success_color "═══════════════════════════════════════")
-
-$(warning_color "Decision: $DECISION")
-
-$(info_color "Phase 1: Proposals (10 min)")
-  Each agent proposes a solution
-
-$(info_color "Phase 2: Discussion (15 min)")
-  Discuss merits and concerns
-  Identify common ground
-
-$(info_color "Phase 3: Refinement (10 min)")
-  Refine proposals based on feedback
-  Combine best aspects
-
-$(info_color "Phase 4: Voting (5 min)")
-  Vote on refined proposals
-  **Both agents must agree**
-
-$(shared_color "Commands:")
-  • Propose: ai-consensus-propose.sh <agent> "<proposal>"
-  • Concern: ai-consensus-concern.sh <agent> "<concern>"
-  • Refine: ai-consensus-refine.sh "<refined proposal>"
-  • Vote: ai-consensus-vote.sh <agent> <yes|no|abstain>
-  • Agree: ai-consensus-agree.sh "<final decision>"
-
-$(error_color "⚠️  No action taken until BOTH agents agree!")
-
-═══════════════════════════════════════
-EOF
+mode_blank_line
+mode_announce "System" "INFO" "🤝 Consensus Mode Started" --notify
+mode_announce "System" "INFO" "   Decision: $DECISION"
+mode_blank_line
 
 success_color "✅ Consensus mode active"
 info_color "   Decision: $DECISION"
-echo ""
-echo "Start proposing solutions:"
-echo "  ai-consensus-propose.sh Agent1 \"I propose we...\""
-echo "  ai-consensus-propose.sh Agent2 \"Alternative approach:...\""
-echo ""
-echo "Both agents must agree before proceeding!"
+
+mode_show_commands "consensus" \
+    "ai-consensus-propose.sh <agent> \"<proposal>\"    # Add proposal" \
+    "ai-consensus-concern.sh <agent> \"<concern>\"    # Log concern" \
+    "ai-consensus-refine.sh \"<refined plan>\"         # Refine proposal" \
+    "ai-consensus-vote.sh <agent> <yes|no|abstain>  # Record vote" \
+    "ai-consensus-agree.sh \"<final decision>\"       # Finalize"
+
+mode_blank_line
+info_color "Start by submitting proposals:"
+info_color "  ai-consensus-propose.sh Agent1 \"Let's build service A\""
+info_color "  ai-consensus-propose.sh Agent2 \"Alternative approach...\""
+warning_color "⚠️  Work pauses until both agents vote yes."
