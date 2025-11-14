@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/consensus.json"
+MODE_STATE="$AI_AGENTS_STATE_CONSENSUS"
 AGENT="${1:-}"
 VOTE="${2:-}"
 
@@ -55,7 +55,7 @@ case "$VOTE" in
 esac
 
 # Announce vote
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 $(shared_color "─────────────────────────────────────────")
 ${VOTE_COLOR}${SYMBOL} ${AGENT} votes: ${VOTE^^}${RESET}
@@ -80,7 +80,7 @@ if [[ "$AGENT1_VOTE" != "null" && "$AGENT2_VOTE" != "null" ]]; then
         jq '.consensus_reached = true' \
            "$MODE_STATE" > "${MODE_STATE}.tmp" && mv "${MODE_STATE}.tmp" "$MODE_STATE"
 
-        cat >> /tmp/ai-agents-shared.txt <<EOF
+        cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 $(success_color "★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★")
 $(success_color " 🤝 CONSENSUS REACHED!")
@@ -104,7 +104,7 @@ EOF
 
     else
         # No consensus
-        cat >> /tmp/ai-agents-shared.txt <<EOF
+        cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 $(warning_color "════════════════════════════════════════")
 $(warning_color " ⚠️  No Consensus Yet")

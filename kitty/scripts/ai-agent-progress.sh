@@ -6,12 +6,11 @@
 
 set -euo pipefail
 
-SHARED_FILE="/tmp/ai-agents-shared.txt"
-
-# Source color library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
 source "${SCRIPT_DIR}/lib/temp-files.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
+source "${SCRIPT_DIR}/lib/shared-state.sh"
 
 usage() {
     cat <<EOF
@@ -87,26 +86,26 @@ if [[ "$UPDATE_MODE" == true ]]; then
         TASK_PLAIN=$(echo "$TASK" | sed 's/\x1B\[[0-9;]*[JKmsu]//g')
 
         # Create temp file with updated line
-        if grep -q "$TASK_PLAIN" "$SHARED_FILE" 2>/dev/null; then
+        if grep -q "$TASK_PLAIN" "$AI_AGENTS_SHARED_FILE" 2>/dev/null; then
             # Update existing line (secure temp file with auto-cleanup)
             TMP_FILE=$(temp_file)
-            tac "$SHARED_FILE" | awk -v task="$TASK_PLAIN" -v msg="$MESSAGE" '
+            tac "$AI_AGENTS_SHARED_FILE" | awk -v task="$TASK_PLAIN" -v msg="$MESSAGE" '
                 !found && $0 ~ task { print msg; found=1; next }
                 { print }
             ' | tac > "$TMP_FILE"
-            cat "$TMP_FILE" > "$SHARED_FILE"
+            cat "$TMP_FILE" > "$AI_AGENTS_SHARED_FILE"
         else
             # No existing line, append
-            echo -e "$MESSAGE" >> "$SHARED_FILE"
+            echo -e "$MESSAGE" >> "$AI_AGENTS_SHARED_FILE"
         fi
     else
         # Fallback: just append
-        echo -e "$MESSAGE" >> "$SHARED_FILE"
+        echo -e "$MESSAGE" >> "$AI_AGENTS_SHARED_FILE"
     fi
 else
     # Normal mode: append
-    echo -e "$MESSAGE" >> "$SHARED_FILE"
+    echo -e "$MESSAGE" >> "$AI_AGENTS_SHARED_FILE"
 fi
 
 # Also log to structured log
-echo "[$TIMESTAMP] [$AGENT_ID] [PROGRESS] $TASK: $CURRENT/$TOTAL ($PERCENT%)" >> "${SHARED_FILE}.log"
+echo "[$TIMESTAMP] [$AGENT_ID] [PROGRESS] $TASK: $CURRENT/$TOTAL ($PERCENT%)" >> "${AI_AGENTS_SHARED_FILE}.log"

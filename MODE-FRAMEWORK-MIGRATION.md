@@ -11,12 +11,12 @@ The mode framework (`lib/mode-framework.sh`) centralizes common initialization l
 
 ### Already Migrated
 - ✅ **pair-programming.sh** - Reduced from 83 lines → 60 lines
+- ✅ **debate.sh** - Uses framework + `protocols/debate-protocol.txt`
+- ✅ **teaching.sh** - Uses framework + `protocols/teaching-protocol.txt`
+- ✅ **consensus.sh** - Uses framework + `protocols/consensus-protocol.txt`
+- ✅ **competition.sh** - Uses framework + `protocols/competition-protocol.txt`
 
-### To Migrate
-- ⏳ **debate.sh**
-- ⏳ **teaching.sh**
-- ⏳ **consensus.sh**
-- ⏳ **competition.sh**
+All legacy collaboration modes are now on the shared framework. The "To Migrate" section is intentionally left empty for future modes.
 
 ---
 

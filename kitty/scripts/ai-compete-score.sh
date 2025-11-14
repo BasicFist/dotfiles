@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/competition.json"
+MODE_STATE="$AI_AGENTS_STATE_COMPETITION"
 AGENT="${1:-}"
 CRITERION="${2:-}"
 POINTS="${3:-}"
@@ -76,7 +76,7 @@ else
 fi
 
 # Announce score
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 ${AGENT_COLOR}─────────────────────────────────────────${RESET}
 ${COLOR}${SYMBOL} ${AGENT} - ${CRITERION^}: ${POINTS}/25 points${RESET}
@@ -95,7 +95,7 @@ AGENT2_SCORE=$(jq -r '.scores.Agent2' "$MODE_STATE")
 
 # If both have scores >= 100, competition is complete
 if [[ "$AGENT1_SCORE" -ge 100 || "$AGENT2_SCORE" -ge 100 ]]; then
-    cat >> /tmp/ai-agents-shared.txt <<EOF
+    cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 $(success_color "════════════════════════════════════════")
 $(success_color " 📊 All criteria scored!")
 $(success_color "════════════════════════════════════════")

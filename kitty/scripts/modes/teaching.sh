@@ -6,17 +6,15 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../lib/colors.sh"
+source "${SCRIPT_DIR}/../lib/mode-framework.sh"
+source "${SCRIPT_DIR}/../lib/constants.sh"
 
 EXPERT="${1:-Agent1}"
 LEARNER="${2:-Agent2}"
 TOPIC="${3:-General programming concepts}"
-MODE_STATE="/tmp/ai-mode-${SESSION}/teaching.json"
 
-# Initialize mode
-cat > "$MODE_STATE" <<EOF
+STATE_JSON=$(cat <<EOF
 {
   "mode": "teaching",
   "started": "$(date -Iseconds)",
@@ -28,62 +26,32 @@ cat > "$MODE_STATE" <<EOF
   "mastery_level": 0
 }
 EOF
+)
 
-# Clear shared communication
-> /tmp/ai-agents-shared.txt
+if ! mode_init "teach" "$STATE_JSON" "protocols/teaching-protocol.txt"; then
+    error_color "❌ Failed to initialize teaching mode"
+    exit 1
+fi
 
-# Announce mode start
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "🎓 Teaching Mode Started" --notify
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "   Expert: $EXPERT"
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "   Learner: $LEARNER"
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "   Topic: $TOPIC"
-echo "" >> /tmp/ai-agents-shared.txt
-
-# Show protocol
-cat >> /tmp/ai-agents-shared.txt <<EOF
-$(success_color "═══════════════════════════════════════")
-$(success_color " Teaching Protocol")
-$(success_color "═══════════════════════════════════════")
-
-$(warning_color "Topic: $TOPIC")
-
-$(agent1_color "Expert ($EXPERT):")
-  • Explain concepts clearly
-  • Provide examples
-  • Check for understanding
-  • Adapt to learner's pace
-  • Encourage questions
-
-$(agent2_color "Learner ($LEARNER):")
-  • Ask questions freely
-  • Try exercises
-  • Share your understanding
-  • Request clarification
-  • Practice new concepts
-
-$(shared_color "Commands:")
-  • Explain: ai-teach-explain.sh "$EXPERT" "<concept>" "<explanation>"
-  • Question: ai-teach-question.sh "$LEARNER" "<question>"
-  • Exercise: ai-teach-exercise.sh "<exercise>" [difficulty]
-  • Check understanding: ai-teach-check.sh "$LEARNER" "<summary>"
-  • Mark mastered: ai-teach-mastered.sh "<concept>"
-
-$(info_color "Flow:")
-  1. Expert explains concept
-  2. Learner asks questions
-  3. Expert provides examples
-  4. Learner practices
-  5. Check understanding
-  6. Move to next concept
-
-═══════════════════════════════════════
-EOF
+mode_blank_line
+mode_announce "System" "INFO" "🎓 Teaching Mode Started" --notify
+mode_announce "System" "INFO" "   Expert: $EXPERT"
+mode_announce "System" "INFO" "   Learner: $LEARNER"
+mode_announce "System" "INFO" "   Topic: $TOPIC"
+mode_blank_line
 
 success_color "✅ Teaching mode active"
 info_color "   Expert: $EXPERT"
 info_color "   Learner: $LEARNER"
 info_color "   Topic: $TOPIC"
-echo ""
-echo "Start teaching:"
-echo "  ai-teach-explain.sh $EXPERT \"Concept\" \"Explanation...\""
-echo "  ai-teach-question.sh $LEARNER \"How does X work?\""
+
+mode_show_commands "teaching" \
+    "ai-teach-explain.sh \"<concept>\" \"<explanation>\"   # Expert explains" \
+    "ai-teach-question.sh <learner> \"<question>\"         # Learner asks" \
+    "ai-teach-exercise.sh \"<exercise>\" [difficulty]      # Practice" \
+    "ai-teach-check.sh <learner> \"<summary>\"            # Check mastery" \
+    "ai-teach-mastered.sh \"<concept>\"                   # Mark mastered"
+
+mode_blank_line
+info_color "Kick off by explaining the first concept:"
+info_color "  ai-teach-explain.sh \"Event loop\" \"Here's how it works...\""

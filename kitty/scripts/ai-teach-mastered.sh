@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/teaching.json"
+MODE_STATE="$AI_AGENTS_STATE_TEACHING"
 CONCEPT="${1:-}"
 
 if [[ ! -f "$MODE_STATE" ]]; then
@@ -39,7 +39,7 @@ jq --arg mastery "$NEW_MASTERY" \
    "$MODE_STATE" > "${MODE_STATE}.tmp" && mv "${MODE_STATE}.tmp" "$MODE_STATE"
 
 # Celebrate mastery
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 $(success_color "★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★")
 $(success_color " 🎉 CONCEPT MASTERED!")
@@ -58,7 +58,7 @@ $(info_color "Session Progress:")
 EOF
 
 if [[ $NEW_MASTERY -ge 100 ]]; then
-    cat >> /tmp/ai-agents-shared.txt <<EOF
+    cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 $(success_color "╔═══════════════════════════════════════╗")
 $(success_color "║   🏆 TOPIC FULLY MASTERED! 🏆        ║")
 $(success_color "╚═══════════════════════════════════════╝")
@@ -71,14 +71,14 @@ $(warning_color "Run ai-session-save.sh to preserve this learning session!")
 EOF
     "${SCRIPT_DIR}/ai-agent-send-enhanced.sh" System RESULT "🏆 Topic Mastered: $TOPIC" --notify --blink
 else
-    cat >> /tmp/ai-agents-shared.txt <<EOF
+    cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 $(shared_color "Great progress! Continue to next concept!")
 
 EOF
     "${SCRIPT_DIR}/ai-agent-send-enhanced.sh" System RESULT "✅ Mastered: $CONCEPT" --notify
 fi
 
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 $(success_color "★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★")
 
 EOF

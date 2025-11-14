@@ -6,15 +6,13 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/../lib/colors.sh"
+source "${SCRIPT_DIR}/../lib/mode-framework.sh"
+source "${SCRIPT_DIR}/../lib/constants.sh"
 
 TOPIC="${1:-No topic specified}"
-MODE_STATE="/tmp/ai-mode-${SESSION}/debate.json"
 
-# Initialize mode
-cat > "$MODE_STATE" <<EOF
+STATE_JSON=$(cat <<EOF
 {
   "mode": "debate",
   "started": "$(date -Iseconds)",
@@ -27,50 +25,28 @@ cat > "$MODE_STATE" <<EOF
   "consensus_reached": false
 }
 EOF
+)
 
-# Clear shared communication
-> /tmp/ai-agents-shared.txt
+if ! mode_init "debate" "$STATE_JSON" "protocols/debate-protocol.txt"; then
+    error_color "❌ Failed to initialize debate mode"
+    exit 1
+fi
 
-# Announce mode start
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "💭 Debate Mode Started" --notify
-"${SCRIPT_DIR}/../ai-agent-send-enhanced.sh" System INFO "   Topic: $TOPIC"
-echo "" >> /tmp/ai-agents-shared.txt
-
-# Show protocol
-cat >> /tmp/ai-agents-shared.txt <<EOF
-$(success_color "═══════════════════════════════════════")
-$(success_color " Debate Protocol")
-$(success_color "═══════════════════════════════════════")
-
-$(warning_color "Topic: $TOPIC")
-
-$(info_color "Round 1: Opening Statements (5 min)")
-  Each agent presents their position
-
-$(info_color "Round 2: Arguments (10 min)")
-  Present supporting evidence and reasoning
-
-$(info_color "Round 3: Rebuttals (10 min)")
-  Address counter-arguments
-
-$(info_color "Round 4: Synthesis (5 min)")
-  Find common ground
-  Identify best combined approach
-
-$(shared_color "Commands:")
-  • Position: ai-debate-position.sh <agent> "<position>"
-  • Argument: ai-debate-argue.sh <agent> "<argument>" [evidence]
-  • Rebuttal: ai-debate-rebut.sh <agent> "<rebuttal>"
-  • Consensus: ai-debate-consensus.sh "<agreed solution>"
-
-$(warning_color "Goal: Find the best solution through discussion!")
-
-═══════════════════════════════════════
-EOF
+mode_blank_line
+mode_announce "System" "INFO" "💭 Debate Mode Started" --notify
+mode_announce "System" "INFO" "   Topic: $TOPIC"
+mode_blank_line
 
 success_color "✅ Debate mode active"
 info_color "   Topic: $TOPIC"
-echo ""
-echo "Start by stating positions:"
-echo "  ai-debate-position.sh Agent1 \"I propose approach A because...\""
-echo "  ai-debate-position.sh Agent2 \"I prefer approach B because...\""
+
+mode_show_commands "debate" \
+    "ai-debate-position.sh <agent> \"<position>\"   # Record opening statement" \
+    "ai-debate-argue.sh <agent> \"<argument>\"     # Submit supporting argument" \
+    "ai-debate-rebut.sh <agent> \"<rebuttal>\"     # Rebut the other agent" \
+    "ai-debate-consensus.sh \"<solution>\"          # Capture synthesis decision"
+
+mode_blank_line
+info_color "Start by capturing positions:"
+info_color "  ai-debate-position.sh Agent1 \"Approach A because...\""
+info_color "  ai-debate-position.sh Agent2 \"Approach B because...\""

@@ -1,0 +1,31 @@
+═══════════════════════════════════════
+ Consensus Building Protocol
+═══════════════════════════════════════
+
+Phase 1: Proposals (10 min)
+  • Each agent proposes a solution
+  • Capture pros, cons, and assumptions
+
+Phase 2: Discussion (15 min)
+  • Surface concerns and risks
+  • Identify common goals
+
+Phase 3: Refinement (10 min)
+  • Iterate on proposals together
+  • Combine the strongest elements
+
+Phase 4: Voting (5 min)
+  • Vote yes/no/abstain on the refined plan
+  • Both agents must approve before continuing
+
+Commands:
+  • Propose: ai-consensus-propose.sh <agent> "<proposal>"
+  • Concern: ai-consensus-concern.sh <agent> "<concern>"
+  • Refine: ai-consensus-refine.sh "<refined proposal>"
+  • Vote: ai-consensus-vote.sh <agent> <yes|no|abstain>
+  • Agree: ai-consensus-agree.sh "<final decision>"
+
+Goal:
+  • Produce a decision both agents fully support
+
+═══════════════════════════════════════

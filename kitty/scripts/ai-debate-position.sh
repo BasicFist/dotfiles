@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/colors.sh"
+source "${SCRIPT_DIR}/lib/constants.sh"
 
-MODE_STATE="/tmp/ai-mode-${SESSION}/debate.json"
+MODE_STATE="$AI_AGENTS_STATE_DEBATE"
 AGENT="${1:-}"
 POSITION="${2:-}"
 
@@ -38,7 +38,7 @@ else
 fi
 
 # Announce position
-cat >> /tmp/ai-agents-shared.txt <<EOF
+cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 
 ${AGENT_COLOR}═══════════════════════════════════════${RESET}
 ${AGENT_COLOR}📢 ${AGENT} - Opening Statement${RESET}
@@ -59,7 +59,7 @@ AGENT1_POS=$(jq -r '.positions.Agent1' "$MODE_STATE")
 AGENT2_POS=$(jq -r '.positions.Agent2' "$MODE_STATE")
 
 if [[ "$AGENT1_POS" != "null" && "$AGENT2_POS" != "null" ]]; then
-    cat >> /tmp/ai-agents-shared.txt <<EOF
+    cat >> "$AI_AGENTS_SHARED_FILE" <<EOF
 $(success_color "════════════════════════════════════════")
 $(success_color " ✅ Both positions stated!")
 $(success_color "════════════════════════════════════════")

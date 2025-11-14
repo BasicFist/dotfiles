@@ -6,7 +6,10 @@
 
 set -euo pipefail
 
-SHARED_FILE="/tmp/ai-agents-shared.txt"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/constants.sh"
+source "${SCRIPT_DIR}/lib/shared-state.sh"
+
 AGENT_ID="${1:-Unknown}"
 MESSAGE="${2:-}"
 
@@ -16,5 +19,7 @@ if [[ -z "$MESSAGE" ]]; then
     exit 1
 fi
 
+ensure_shared_state_paths
+
 TIMESTAMP=$(date '+%H:%M:%S')
-echo "[$TIMESTAMP] [$AGENT_ID] $MESSAGE" >> "$SHARED_FILE"
+echo "[$TIMESTAMP] [$AGENT_ID] $MESSAGE" >> "$AI_AGENTS_SHARED_FILE"

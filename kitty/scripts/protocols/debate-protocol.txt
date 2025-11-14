@@ -1,0 +1,34 @@
+═══════════════════════════════════════
+ Debate Protocol
+═══════════════════════════════════════
+
+Topic:
+  • Provided when the mode starts
+  • Capture the core question before debating
+
+Round 1: Opening Statements (5 min)
+  • Each agent presents their position
+  • Focus on clarity over detail
+
+Round 2: Arguments (10 min)
+  • Provide supporting evidence
+  • Compare trade-offs and constraints
+
+Round 3: Rebuttals (10 min)
+  • Address counter-arguments directly
+  • Highlight risks and blind spots
+
+Round 4: Synthesis (5 min)
+  • Identify common ground
+  • Combine the strongest ideas
+
+Commands:
+  • Position: ai-debate-position.sh <agent> "<position>"
+  • Argument: ai-debate-argue.sh <agent> "<argument>" [evidence]
+  • Rebuttal: ai-debate-rebut.sh <agent> "<rebuttal>"
+  • Consensus: ai-debate-consensus.sh "<agreed solution>"
+
+Goal:
+  • Respectfully test approaches until a clear winner emerges
+
+═══════════════════════════════════════

@@ -6,7 +6,11 @@
 
 set -euo pipefail
 
-SESSION=${KITTY_AI_SESSION:-ai-agents}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/constants.sh"
+source "${SCRIPT_DIR}/lib/shared-state.sh"
+
+SESSION="$AI_AGENTS_SESSION"
 MESSAGE="${1:-}"
 
 if [[ -z "$MESSAGE" ]]; then
@@ -28,4 +32,4 @@ tmux send-keys -t "$SESSION":0.1 "# BROADCAST: $MESSAGE" C-m
 
 # Also send to shared file
 TIMESTAMP=$(date '+%H:%M:%S')
-echo "[$TIMESTAMP] [BROADCAST] $MESSAGE" >> /tmp/ai-agents-shared.txt
+echo "[$TIMESTAMP] [BROADCAST] $MESSAGE" >> "$AI_AGENTS_SHARED_FILE"
