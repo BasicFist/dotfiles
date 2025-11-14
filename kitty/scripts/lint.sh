@@ -17,17 +17,16 @@ if [[ ! -d "$KITTY_ROOT" ]]; then
     exit 1
 fi
 
-SCRIPTS=(
-    "verify-config.sh"
-    "system-monitor.sh"
-    "stop-monitor.sh"
-    "clipboard-manager.sh"
-    "scripts/agent-terminal.sh"
-    "scripts/launch-shared-tmux.sh"
-    "scripts/switch-theme.sh"
-    "scripts/show-shortcuts.sh"
-    "scripts/tmux-shared-aliases.sh"
+mapfile -t SCRIPTS < <(
+    cd "$KITTY_ROOT" >/dev/null 2>&1 && \
+    find . -type d \( -name '.git' -o -name '.serena' -o -name '.cache' -o -name '.state' \) -prune -o \
+        -type f -name '*.sh' -print | sort
 )
+
+if [[ ${#SCRIPTS[@]} -eq 0 ]]; then
+    echo -e "${RED}❌ No shell scripts found under $KITTY_ROOT${NC}"
+    exit 1
+fi
 
 # Colors
 GREEN='\033[0;32m'
@@ -60,14 +59,16 @@ WARNINGS=0
 PASSED=0
 
 for script in "${SCRIPTS[@]}"; do
-    SCRIPT_PATH="$KITTY_ROOT/$script"
+    local_rel="${script#./}"
+    rel_path="$local_rel"
+    SCRIPT_PATH="$KITTY_ROOT/$rel_path"
 
     if [[ ! -f "$SCRIPT_PATH" ]]; then
-        echo -e "${RED}⚠️  $script: NOT FOUND${NC}"
+        echo -e "${RED}⚠️  $rel_path: NOT FOUND${NC}"
         continue
     fi
 
-    echo "Checking $script..."
+    echo "Checking $rel_path..."
 
     # Run shellcheck with severity levels
     if OUTPUT=$(shellcheck -S style "$SCRIPT_PATH" 2>&1); then

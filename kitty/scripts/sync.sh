@@ -15,6 +15,7 @@ set -euo pipefail
 SCRIPT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_DIR="$SCRIPT_ROOT"
 LIVE_DIR="${KITTY_LIVE_DIR:-$HOME/.config/kitty}"
+SNAPSHOT_DIR="${KITTY_SYNC_SNAPSHOT_DIR:-$HOME/.local/share/kitty-sync-snapshots}"
 
 usage() {
     cat <<'EOF'
@@ -28,8 +29,13 @@ Usage:
 Environment:
   KITTY_LIVE_DIR   Override the live kitty config path (default: ~/.config/kitty)
   DRY_RUN=1        Preview rsync operations without copying
+  SYNC_ASSUME_YES  Skip confirmation prompts (set to 1)
+  KITTY_SYNC_SKIP_SNAPSHOT  Skip automatic tar snapshots (set to 1)
+  KITTY_SYNC_SNAPSHOT_DIR   Override snapshot destination directory
 
 Both directions use rsync with --delete to keep directories aligned.
+Before destructive syncs, the tool now asks for confirmation and creates
+tarball snapshots so you can roll back accidental deletions quickly.
 Key runtime artefacts such as wallpapers/, *.backup-*, and Serena metadata are excluded.
 EOF
 }
@@ -66,6 +72,54 @@ build_rsync_flags() {
     done
 }
 
+confirm_destructive() {
+    local direction="$1"
+    local source="$2"
+    local target="$3"
+
+    if [[ "${DRY_RUN:-0}" == "1" || "${SYNC_ASSUME_YES:-0}" == "1" ]]; then
+        return
+    fi
+
+    echo "⚠️  $direction will mirror $source → $target using --delete."
+    read -r -p "Proceed? [y/N] " answer
+    if [[ ! "$answer" =~ ^[Yy]$ ]]; then
+        echo "Aborted by user"
+        exit 1
+    fi
+}
+
+create_snapshot() {
+    local target="$1"
+    local label="$2"
+
+    if [[ "${DRY_RUN:-0}" == "1" || "${KITTY_SYNC_SKIP_SNAPSHOT:-0}" == "1" ]]; then
+        return
+    fi
+
+    if ! command -v tar >/dev/null 2>&1; then
+        echo "⚠️  Snapshot skipped (tar unavailable)"
+        return
+    fi
+
+    if [[ ! -d "$target" ]]; then
+        echo "⚠️  Snapshot skipped (missing $target)"
+        return
+    fi
+
+    mkdir -p "$SNAPSHOT_DIR"
+    local timestamp
+    timestamp=$(date +%Y%m%d-%H%M%S)
+    local archive="$SNAPSHOT_DIR/${label}-${timestamp}.tar.gz"
+
+    echo "🗂  Creating snapshot: $archive"
+    if tar -czf "$archive" -C "$target" . >/dev/null 2>&1; then
+        echo "   Snapshot ready"
+    else
+        echo "   ⚠️  Snapshot failed"
+    fi
+}
+
 sync_pull() {
     if [[ ! -d "$LIVE_DIR" ]]; then
         echo "❌ Live kitty directory not found: $LIVE_DIR" >&2
@@ -76,6 +130,9 @@ sync_pull() {
 
     local flags=()
     build_rsync_flags flags
+
+    confirm_destructive "pull" "$LIVE_DIR" "$REPO_DIR"
+    create_snapshot "$REPO_DIR" "repo-before-pull"
 
     echo "📥 Syncing $LIVE_DIR → $REPO_DIR"
     rsync "${flags[@]}" "$LIVE_DIR"/ "$REPO_DIR"/
@@ -92,6 +149,9 @@ sync_push() {
 
     local flags=()
     build_rsync_flags flags
+
+    confirm_destructive "push" "$REPO_DIR" "$LIVE_DIR"
+    create_snapshot "$LIVE_DIR" "live-before-push"
 
     echo "📤 Syncing $REPO_DIR → $LIVE_DIR"
     rsync "${flags[@]}" "$REPO_DIR"/ "$LIVE_DIR"/
