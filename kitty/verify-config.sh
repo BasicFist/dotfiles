@@ -45,6 +45,7 @@ WARNINGS=()
 KITTY_ROOT="${KITTY_ROOT:-$HOME/.config/kitty}"
 KITTY_CONF="$KITTY_ROOT/kitty.conf"
 KITTY_MODULE_DIR="$KITTY_ROOT/kitty.d"
+SECURITY_CONF="$KITTY_MODULE_DIR/security.conf"
 
 if [[ ! -d "$KITTY_ROOT" ]]; then
     echo "Kitty directory not found: $KITTY_ROOT" >&2
@@ -85,6 +86,34 @@ check_any_command() {
     echo "   ⚠️  Missing: $description ($joined)"
     add_warning "$description not available ($joined)"
     return 1
+}
+
+resolve_binding_path() {
+    local ref="$1"
+    local normalized="$ref"
+    normalized="${normalized//\${HOME}/$HOME}"
+    normalized="${normalized//\$HOME/$HOME}"
+    if [[ $normalized == ~/* ]]; then
+        normalized="$HOME/${normalized#~/}"
+    fi
+
+    local home_prefix="$HOME/.config/kitty/"
+    if [[ $normalized == $home_prefix* ]]; then
+        printf '%s\n' "$KITTY_ROOT/${normalized#"$home_prefix"}"
+        return 0
+    fi
+
+    if [[ $normalized == scripts/* ]]; then
+        printf '%s\n' "$KITTY_ROOT/$normalized"
+        return 0
+    fi
+
+    if [[ $normalized == ./* ]]; then
+        printf '%s\n' "$KITTY_ROOT/${normalized#./}"
+        return 0
+    fi
+
+    printf ''
 }
 
 echo "⚡ Kitty HARDENED v2.1 Configuration Verification"
@@ -139,15 +168,67 @@ fi
 
 # Check remote control
 echo "4. Security: remote_control..."
-if grep -q "allow_remote_control socket-only" "$KITTY_MODULE_DIR/security.conf" 2>/dev/null; then
+if grep -q "allow_remote_control socket-only" "$SECURITY_CONF" 2>/dev/null; then
     echo "   ✅ Remote control: socket-only"
 else
     echo "   ⚠️  Remote control not configured as socket-only"
     add_warning "Remote control not constrained to socket-only"
 fi
 
+if [[ -f "$SECURITY_CONF" ]]; then
+    PASS_LINE=$(grep -E '^[[:space:]]*remote_control_password' "$SECURITY_CONF" || true)
+    if [[ -z "$PASS_LINE" ]]; then
+        echo "   ⚠️  remote_control_password not set"
+        add_warning "Configure remote_control_password for shared hosts"
+    elif grep -q "secure-password-here" <<<"$PASS_LINE"; then
+        echo "   ⚠️  remote_control_password uses placeholder"
+        add_warning "Replace remote_control_password placeholder with secret"
+    else
+        echo "   ✅ remote_control_password configured"
+    fi
+fi
+
+# Helper script validation
+echo "5. Referenced helper scripts..."
+if [[ ! -f "$KITTY_MODULE_DIR/keybindings.conf" ]]; then
+    echo "   ⚠️  keybindings.conf missing (cannot audit bindings)"
+    add_warning "keybindings.conf missing for script validation"
+else
+    mapfile -t KEYBINDING_SCRIPTS < <(
+        {
+            grep -hoE '((\$\{?HOME\}?|~)/\.config/kitty/[A-Za-z0-9._/-]+\.sh|scripts/[A-Za-z0-9._/-]+\.sh)' \
+                "$KITTY_MODULE_DIR/keybindings.conf" || true;
+        } | sort -u
+    )
+
+    if [[ ${#KEYBINDING_SCRIPTS[@]} -eq 0 ]]; then
+        echo "   ℹ️  No shell helpers referenced by keybindings"
+    else
+        declare -A CHECKED_PATHS=()
+        for ref in "${KEYBINDING_SCRIPTS[@]}"; do
+            if [[ -n "${CHECKED_PATHS[$ref]:-}" ]]; then
+                continue
+            fi
+            CHECKED_PATHS[$ref]=1
+            resolved=$(resolve_binding_path "$ref")
+            if [[ -z "$resolved" ]]; then
+                continue
+            fi
+            if [[ ! -e "$resolved" ]]; then
+                echo "   ❌ $ref missing ($resolved)"
+                EXIT_CODE=1
+            elif [[ ! -x "$resolved" ]]; then
+                echo "   ⚠️  $ref exists but lacks execute bit"
+                add_warning "$ref lacks execute permissions"
+            else
+                echo "   ✅ $ref present"
+            fi
+        done
+    fi
+fi
+
 # Check modular architecture
-echo "5. Modular architecture..."
+echo "6. Modular architecture..."
 MODULES=(
     "security.conf"
     "core.conf"
@@ -175,7 +256,7 @@ for module in "${MODULES[@]}"; do
 done
 
 # Check main config includes
-echo "6. Configuration includes..."
+echo "7. Configuration includes..."
 if grep -q "include kitty.d/security.conf" "$KITTY_CONF" 2>/dev/null; then
     echo "   ✅ security.conf included"
 else
@@ -193,7 +274,7 @@ else
 fi
 
 # Sanity check for active profiles/themes
-echo "7. Profile/theme sanity..."
+echo "8. Profile/theme sanity..."
 ACTIVE_PERF=$(grep -Ec '^[[:space:]]*include kitty\.d/perf-.*\.conf' "$KITTY_CONF" || true)
 if [[ $ACTIVE_PERF -eq 0 ]]; then
     echo "   ⚠️  No performance profile included"
@@ -217,7 +298,7 @@ else
 fi
 
 # Check for deprecated files
-echo "8. Deprecated files cleanup..."
+echo "9. Deprecated files cleanup..."
 if [[ -f "$KITTY_ROOT/glitch.conf.DEPRECATED" ]]; then
     echo "   ✅ glitch.conf properly deprecated"
 else
@@ -230,7 +311,7 @@ else
 fi
 
 # Check backups exist
-echo "9. Backup verification..."
+echo "10. Backup verification..."
 BACKUP_COUNT=$(find "$KITTY_ROOT" -name "*.backup-*" 2>/dev/null | wc -l)
 if [[ $BACKUP_COUNT -gt 0 ]]; then
     echo "   ✅ Found $BACKUP_COUNT backup files"
@@ -240,7 +321,7 @@ else
 fi
 
 # Validate configuration syntax
-echo "10. Configuration syntax validation..."
+echo "11. Configuration syntax validation..."
 if KITTY_CONFIG_DIRECTORY="$KITTY_ROOT" kitty +runpy "from kitty.config import load_config; print('OK')" 2>/dev/null | grep -q "OK"; then
     echo "   ✅ Configuration loads successfully"
 else
