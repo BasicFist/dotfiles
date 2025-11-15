@@ -162,8 +162,11 @@ install_kitty() {
     # Create directory
     mkdir -p ~/.config/kitty
 
-    # Copy configuration
+    # Copy assets (scripts, docs, etc.)
     cp -r kitty/* ~/.config/kitty/
+
+    # Copy configuration files
+    cp -r kitty_config/* ~/.config/kitty/
 
     # Make scripts executable
     chmod +x ~/.config/kitty/scripts/*.sh 2>/dev/null || true
